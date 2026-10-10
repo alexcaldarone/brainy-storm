@@ -44,7 +44,7 @@ function InfoBanner({ message, role = 'status' }: { message: string; role?: 'sta
 
 function thumbnailUrl(thumbnail?: string | null) {
   if (!thumbnail || /^(?:https?:|data:|blob:)/.test(thumbnail)) return thumbnail || ''
-  const base = (import.meta.env.VITE_IDEAS_URL || '/enrichment').replace(/\/$/, '')
+  const base = (import.meta.env.VITE_IDEAS_URL || import.meta.env.VITE_ENRICHMENT_URL || '/api/enrichment').replace(/\/$/, '')
   return thumbnail.startsWith('/ideas/') ? `${base}${thumbnail}` : thumbnail
 }
 
