@@ -90,7 +90,7 @@ async def run_wav_streaming(ws, file_path: str):
 async def run_synthetic_streaming(ws, duration_seconds: int = 5):
     """Send synthetic audio frames to verify server connectivity."""
     print(f"🔊 Sending {duration_seconds}s of synthetic audio to test connection...")
-    
+
     # 440 Hz soft sine wave
     t = np.linspace(0, CHUNK_DURATION, CHUNK_SAMPLES, endpoint=False)
     wave_data = (0.2 * np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16).tobytes()
