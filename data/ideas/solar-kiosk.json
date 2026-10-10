@@ -3,6 +3,7 @@
   "title": "Solar repair kiosk",
   "short_summary": null,
   "summary": "The proposed concept is a solar-powered kiosk designed to provide quick repairs for commuters. The system utilizes solar energy to lower operating costs while serving users on the go. It addresses the daily commuter need for rapid, on-demand repair services.",
+  "is_currently_discussed": false,
   "transcript": "Maya: Commuters need quick repairs. Jon: Solar lowers costs. Lee: Theft is a risk.",
   "raw_body": "Maya: Commuters need quick repairs. Jon: Solar lowers costs. Lee: Theft is a risk.",
   "transcript_segments": [],

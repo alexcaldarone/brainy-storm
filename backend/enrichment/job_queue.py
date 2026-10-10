@@ -180,9 +180,19 @@ class EnrichmentJobQueue:
             for tool in ["summary", "pros_cons", "workflow", "architecture", "competitors"]
             if tool in job.tools
         ]
-        for tool in ordered_tools:
-            stage = await orchestrator.enrich_one(idea.id, tool)
-            execution[tool] = stage["status"]
+        complete_pipeline = {
+            "summary", "pros_cons", "workflow", "architecture", "competitors"
+        }
+        if set(ordered_tools) == complete_pipeline:
+            pipeline = await orchestrator.enrich_idea_from_transcript(idea.id)
+            execution = {
+                tool: detail.get("status", "unknown")
+                for tool, detail in pipeline.get("execution", {}).items()
+            }
+        else:
+            for tool in ordered_tools:
+                stage = await orchestrator.enrich_one(idea.id, tool)
+                execution[tool] = stage["status"]
 
         current = await storage.get_idea(idea.id)
         if not current:

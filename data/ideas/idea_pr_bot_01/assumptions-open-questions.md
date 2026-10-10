@@ -1,13 +1,13 @@
 # Assumptions and Open Questions
 
 ## Assumptions
-- Existing unit test suites provide sufficient coverage to validate generated patches without introducing regressions
-- Developers will actively review suggested patches rather than rubber-stamping AI-generated commits
-- AST diff chunking captures sufficient context for LLMs to generate correct and functional multi-file fixes
-- Container snapshot caching will adequately eliminate ephemeral Docker cold-start delays in CI
+- Repositories have comprehensive, reliable test suites capable of proving the correctness of automated patches.
+- Diff-based AST filtering can reliably isolate relevant context without omitting critical dependencies needed by the model.
+- Snapshot caching for ephemeral Docker containers will adequately mitigate the 5-minute cold-start delay in CI runners.
+- Mandating GPG signing and removing auto-merge functionality satisfies all SOC2 compliance liability standards.
 
 ## Open questions
-- Which LLM provider meets enterprise data privacy requirements to prevent proprietary IP leakage and model training on internal code?
-- How much additional infrastructure cost does snapshot caching introduce relative to the savings gained?
-- What specific metrics will constitute the 'safety score' presented in the PR comments to guide reviewer approvals?
-- How will the bot handle integration test suites that require external network calls or persistent state unavailable in an isolated sandbox?
+- Which LLM vendor or self-hosted deployment model will be utilized to guarantee proprietary code privacy?
+- What specific baseline safety scoring framework will be presented in the interactive PR diff to establish developer trust?
+- How will the sandboxed environment securely handle repositories requiring external services, private registries, or complex environment variables?
+- What is the actual measured financial impact of container snapshot caching versus the anticipated 300% CI cost spike?

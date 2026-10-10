@@ -1,38 +1,36 @@
-flowchart TD
-  subgraph VCS [Version Control & Humans]
-    vcs_platform[GitHub / GitLab Platform]
-    human_reviewer[Human Engineer / Reviewer]
+flowchart LR
+  subgraph External_VCS [Version Control System]
+    GP[GitHub / GitLab VCS]
+    HR[Human Engineer Sign-Off]
   end
 
-  subgraph Ingestion [Ingestion & Token Optimization]
-    webhook_gateway[Webhook Ingestion Gateway]
-    ast_diff_engine[AST Diff & Semantic Parser]
-    job_queue[(Remediation Task Queue)]
+  subgraph Ingestion [Ingestion & Queuing]
+    WG[Webhook Ingestion Gateway]
+    EQ[(PR Review Job Queue)]
   end
 
-  subgraph Core [Remediation Engine]
-    remediation_orchestrator[Remediation Orchestration Engine]
-    llm_inference[Secure LLM Gateway]
-    sandbox_runner[Ephemeral Test Sandbox Pool]
-    gpg_signing_service[GPG Commit Signing Service]
+  subgraph Processing [Analysis & Orchestration]
+    DFS[AST Semantic Diff Parser]
+    RO[Review & Remediation Orchestrator]
+    LLM[[LLM Remediation API]]
   end
 
-  subgraph Compliance [Security & Audit]
-    audit_vault[(Append-Only Audit Vault)]
+  subgraph Verification [Sandbox & Security]
+    SM[Ephemeral Sandbox Runner]
+    GPG[GPG Patch Signer]
+    AV[(Immutable Audit Vault)]
   end
 
-  vcs_platform -->|PR ready_for_review| webhook_gateway
-  webhook_gateway -->|Raw PR diff| ast_diff_engine
-  ast_diff_engine -->|Filtered AST chunks| job_queue
-  job_queue -->|Pop job| remediation_orchestrator
-  remediation_orchestrator -->|AST prompt| llm_inference
-  llm_inference -->|Candidate patch| remediation_orchestrator
-  remediation_orchestrator -->|Run test suite| sandbox_runner
-  sandbox_runner -->|Pass/Fail + Metrics| remediation_orchestrator
-  remediation_orchestrator -->|Sign verified patch| gpg_signing_service
-  gpg_signing_service -->|GPG-signed commit| remediation_orchestrator
-  remediation_orchestrator -->|Write run trace| audit_vault
-  remediation_orchestrator -->|Push suggested commit| vcs_platform
-  vcs_platform -->|Review patch & report| human_reviewer
-  human_reviewer -->|Manual merge| vcs_platform
-  vcs_platform -.->|Audit merge event| audit_vault
+  GP -->|PR Ready-for-Review| WG
+  WG -->|Enqueue Task| EQ
+  EQ -->|Fetch Job| DFS
+  DFS -->|Parsed AST Chunks| RO
+  RO -->|Prompt Context| LLM
+  LLM -->|Proposed Patch| RO
+  RO -->|Run Repo Tests| SM
+  SM -->|Test Status & Metrics| RO
+  RO -->|Record Trail| AV
+  RO -->|Verified Patch| GPG
+  GPG -->|Suggested Commit & Explanations| GP
+  GP -->|Interactive Diff & Safety Score| HR
+  HR -->|Manual Approve / Merge| GP

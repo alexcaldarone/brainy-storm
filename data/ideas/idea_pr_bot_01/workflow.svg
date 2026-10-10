@@ -1,33 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="825" viewBox="0 0 1000 825">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="720" viewBox="0 0 1000 720">
 <rect width="100%" height="100%" fill="#f8fafc"/>
 <style>.title{font:700 22px Arial;fill:#0f172a}.box{fill:#fff;stroke:#6366f1;stroke-width:2}.label{font:600 14px Arial;fill:#0f172a}.small{font:12px Arial;fill:#475569}.edge{stroke:#64748b;stroke-width:2;fill:none}</style>
 <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker></defs>
 <text x="32" y="36" class="title">Workflow</text>
 <rect x="90" y="70" width="820" height="70" rx="12" class="box"/>
-<text x="115" y="98" class="label">Step 1: Webhook Trigger &amp; Guardrail Check - Ingests webhook events from GitHub/GitLab when a</text>
-<text x="115" y="118" class="label">PR is marked &#x27;Ready for Review&#x27;, verifying branch permissions and token expenditure</text>
+<text x="115" y="98" class="label">Step 1: Developer opens a Pull Request or updates an existing one; the webhook triggers the</text>
+<text x="115" y="118" class="label">bot only when status is marked &#x27;ready-for-review&#x27;.</text>
 <line x1="500" y1="140" x2="500" y2="175" class="edge" marker-end="url(#arrow)"/>
 <rect x="90" y="175" width="820" height="70" rx="12" class="box"/>
-<text x="115" y="203" class="label">Step 2: AST-Filtered Diff Extraction - Parses repository changes using Abstract Syntax Tree</text>
-<text x="115" y="223" class="label">(AST) analysis to filter out cosmetic changes and isolate logic paths and security-sensitive</text>
+<text x="115" y="203" class="label">Step 2: The system performs diff-based token gating to manage API costs and scope</text>
+<text x="115" y="223" class="label">complexity.</text>
 <line x1="500" y1="245" x2="500" y2="280" class="edge" marker-end="url(#arrow)"/>
 <rect x="90" y="280" width="820" height="70" rx="12" class="box"/>
-<text x="115" y="308" class="label">Step 3: Vulnerability &amp; Bug Remediation Generation - Feeds filtered diff context and</text>
-<text x="115" y="328" class="label">security rules into an AI remediation engine to construct code patches and explanatory</text>
+<text x="115" y="308" class="label">Step 3: The bot analyzes the code for security vulnerabilities and logical anti-patterns,</text>
+<text x="115" y="328" class="label">then spins up an isolated sandbox environment.</text>
 <line x1="500" y1="350" x2="500" y2="385" class="edge" marker-end="url(#arrow)"/>
 <rect x="90" y="385" width="820" height="70" rx="12" class="box"/>
-<text x="115" y="413" class="label">Step 4: Sandbox Provisioning &amp; Patch Application - Spawns a secure, ephemeral microVM or</text>
-<text x="115" y="433" class="label">container sandbox and applies the candidate patch on top of the target branch.</text>
+<text x="115" y="413" class="label">Step 4: Inside the sandbox, the bot executes unit tests and dynamically writes verified fix</text>
+<text x="115" y="433" class="label">patches and performance optimizations.</text>
 <line x1="500" y1="455" x2="500" y2="490" class="edge" marker-end="url(#arrow)"/>
 <rect x="90" y="490" width="820" height="70" rx="12" class="box"/>
-<text x="115" y="518" class="label">Step 5: Test Suite Verification - Executes the repository&#x27;s native test suites (unit,</text>
-<text x="115" y="538" class="label">integration, linting) within the sandbox to ensure zero regressions or broken tests.</text>
+<text x="115" y="518" class="label">Step 5: The bot posts a detailed explanation and patch proposal back to the PR interface.</text>
 <line x1="500" y1="560" x2="500" y2="595" class="edge" marker-end="url(#arrow)"/>
 <rect x="90" y="595" width="820" height="70" rx="12" class="box"/>
-<text x="115" y="623" class="label">Step 6: PR Feedback &amp; Suggested Commit Delivery - Packages verified patches into suggested</text>
-<text x="115" y="643" class="label">commits or review comments with inline explanations detailing the fix and test outcomes.</text>
-<line x1="500" y1="665" x2="500" y2="700" class="edge" marker-end="url(#arrow)"/>
-<rect x="90" y="700" width="820" height="70" rx="12" class="box"/>
-<text x="115" y="728" class="label">Step 7: Human Verification &amp; Sign-off - Halts execution at the mandatory human-in-the-loop</text>
-<text x="115" y="748" class="label">gate, requiring manual review and merge authorization with strict prohibitions against</text>
+<text x="115" y="623" class="label">Step 6: A human reviewer inspects the changes and provides mandatory GPG-verified sign-off</text>
+<text x="115" y="643" class="label">before the patch is merged.</text>
 </svg>

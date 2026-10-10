@@ -3,6 +3,7 @@
   "title": "my-beautiful-idea",
   "short_summary": null,
   "summary": "my idea talks about",
+  "is_currently_discussed": false,
   "transcript": "my idea talks about",
   "raw_body": "my idea talks about",
   "transcript_segments": [],

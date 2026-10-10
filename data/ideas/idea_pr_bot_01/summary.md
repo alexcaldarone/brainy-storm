@@ -5,8 +5,8 @@
 
 ## Summary
 
-Designed for software engineering teams struggling with slow pull request reviews and context-switching, this Autonomous Code Review & Security Remediation Bot integrates into GitHub and GitLab to automate routine code and vulnerability fixes. Unlike standard static analysis tools, the bot isolates issues in an execution sandbox, runs the repository's test suite to verify generated patches, and submits suggested commits with contextual explanations. It operates with cost and security guardrails by analyzing AST-filtered diffs only when PRs are marked ready for review, strictly requiring human sign-off without auto-merging.
+To address a 4.5-day PR review bottleneck, the team is proposing an Autonomous Code Review & Security Remediation Bot integrated into GitHub and GitLab. Instead of only flagging issues, the bot spins up an isolated sandbox to run unit tests, write verified fix patches, and explain optimizations. Operationally, it relies on strict guardrails including diff-based token gating, execution only on PR ready-for-review status, and mandatory human sign-off with GPG verification.
 
 ## Key takeaway
 
-The team conditionally agreed to prototype the bot with closed-loop sandbox testing, diff-based token gating, and mandatory human GPG sign-off backed by an audit trail to satisfy SOC2 compliance.
+The team agreed to move forward with a prototype subject to strict guardrails, including diff-based token filtering, closed-loop sandbox testing, and an append-only audit trail for compliance and human-in-the-loop sign-off.

@@ -1,14 +1,12 @@
-flowchart TD
-    A[PR Marked 'Ready for Review'] --> B{Cost & Scope Guardrails}
-    B -->|Passed| C[AST Diff Parser & Filtering]
-    B -->|Rejected / Out of Scope| Z[Halt & Skip]
-    C --> D[AI Remediation Engine]
-    D --> E[Generate Candidate Patch]
-    E --> F[Provision Ephemeral Sandbox]
-    F --> G[Run Repository Test Suite]
-    G --> H{Tests Passed?}
-    H -->|No| I[Log Diagnostics / Abandon Patch]
-    H -->|Yes| J[Submit Suggested Commits & Explanations]
-    J --> K[Mandatory Human Review]
-    K -->|Approved| L[Engineer Merges PR]
-    K -->|Rejected| M[Discard / Revise Suggestion]
+graph TD
+    A[PR Marked Ready for Review] --> B[Webhook Trigger]
+    B --> C{Diff-Based Token Gating}
+    C -->|Within Limit| D[Static Analysis & Vulnerability Scan]
+    C -->|Exceeds Limit| E[Request Human Intervention]
+    D --> F[Spin Up Isolated Sandbox]
+    F --> G[Run Unit Tests & Generate Fix Patch]
+    G --> H[Post Explanation & Patch to PR]
+    H --> I[Human Reviewer Inspection]
+    I --> J{Mandatory GPG Sign-Off}
+    J -->|Approved| K[Merge & Close]
+    J -->|Rejected| L[Iterate / Manual Fix]

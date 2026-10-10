@@ -43,6 +43,13 @@ Only run the command for the provider you configured. To require both:
 python -m backend.enrichment.ping_models --provider all
 ```
 
+The pipeline uses `GEMINI_FAST_MODEL=gemini-flash-lite-latest` for routing,
+relevance extraction, summaries, and workflow generation. Higher-judgment
+pros/cons, architecture, and competitor research use `GEMINI_MODEL`. Override
+either value in `.env`. `GROUNDED_SEARCH_TIMEOUT_SECONDS=20` bounds the Google
+grounding attempt before competitor research falls back to independently
+searched web context.
+
 ## Run and test the API
 
 ```bash
@@ -265,3 +272,13 @@ curl -sS http://127.0.0.1:8001/ideas/idea_pr_bot_01/artifacts \
 
 curl -sS http://127.0.0.1:8001/ideas/idea_pr_bot_01/artifacts/pros-cons.md
 ```
+
+Time a complete live run for any stored idea:
+
+```bash
+python -m backend.enrichment.run_example --idea-id idea_pr_bot_01
+```
+
+Transcript-first stages run concurrently. Workflow and competitor research
+start as soon as the summary dependency completes. In the included PR-bot
+example, this reduced the measured live run from 70.10 seconds to 41.35 seconds.

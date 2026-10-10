@@ -2,70 +2,70 @@
 
 *Live Web Grounded*
 
-The automated code review and vulnerability remediation space is populated by legacy static analyzers, specialized AI PR review bots, and automated vulnerability fixers. Most competitors either provide read-only PR comments that add cognitive noise or suggest speculative fixes without deterministic verification. Our solution differentiates itself by incorporating a verified, closed-loop sandbox that executes repository tests prior to suggesting ready-to-commit patches with strict human-in-the-loop controls.
+Existing market solutions are primarily divided between advisory AI review bots that post comments without verification and static security linters that produce templated fixes. Our solution occupies the emerging agentic remediation niche by pairing closed-loop sandbox execution and test verification with enterprise governance (GPG sign-off and token-gating).
 
 ## CodeRabbit
 
 **Founded:** 2023
 
 ### Their Idea
-Automated AI code reviewer providing conversational feedback and line-by-line suggestions on pull requests.
+Automated conversational pull request reviews powered by LLMs.
 
 ### Short Bio
-CodeRabbit is an AI code review platform that provides automated summaries, code walkthroughs, and inline suggestions on GitHub and GitLab pull requests.
+CodeRabbit provides intelligent, context-aware automated code reviews directly within developer workflows to accelerate pull request cycles.
 
 ### How We Differ
-CodeRabbit operates primarily as an analytical review and commenting agent without isolating and executing suggested fixes against the repository's test suite inside a dedicated sandbox before proposing commits.
+CodeRabbit relies primarily on static LLM diff inspection and comments; our bot spins up an isolated ephemeral sandbox to run tests against generated patches, verifying correctness and mitigating hallucinated bugs prior to human presentation.
 
-## Snyk (Snyk DeepCode AI / Snyk Fix)
-
-**Founded:** 2015
-
-### Their Idea
-Automated security remediation engine detecting vulnerabilities and offering one-click PR fixes.
-
-### Short Bio
-Snyk is a cybersecurity company that empowers developers to find and fix vulnerabilities in code, dependencies, containers, and infrastructure as code.
-
-### How We Differ
-Snyk focuses primarily on CVE security patches and lint-style SAST rules, whereas our bot handles general engineering boilerplate, logic issues, and vulnerability patching verified via an active execution sandbox running the test suite.
-
-## Qodo (formerly CodiumAI / PR-Agent)
+## Qodo (formerly CodiumAI) PR-Agent
 
 **Founded:** 2022
 
 ### Their Idea
-Autonomous PR agent that analyzes pull requests, drafts descriptions, spots logic errors, and generates test suites.
+AI-assisted PR enhancement tool focused on automated reviews, PR documentation, and test suggestions.
 
 ### Short Bio
-Qodo develops code-integrity solutions and open-source agents like PR-Agent to automate code analysis, test generation, and review management.
+Qodo builds developer-first generative AI tools aimed at code integrity, quality assurance, and automated PR review assistance.
 
 ### How We Differ
-Qodo generates unit tests and review suggestions via static LLM prompting, whereas our bot uses AST-filtered triggers and runs the repository's native test suite in an execution sandbox to validate patch correctness before presenting suggested commits.
+While PR-Agent generates test templates and suggestions, it lacks closed-loop sandbox patch execution, ready-for-review gating, and mandatory GPG cryptographic signing guardrails to protect against supply-chain and hallucinated package attacks.
 
-## SonarQube (SonarCloud)
+## Sweep AI
 
-**Founded:** 2008
+**Founded:** 2023
 
 ### Their Idea
-Static analysis engine enforcing strict quality gates across codebases during continuous integration builds.
+Autonomous bug-fixing and feature-implementation agent operating directly on GitHub repositories.
 
 ### Short Bio
-SonarSource provides SonarQube and SonarCloud, leading tools for static code analysis, security linting, and technical debt monitoring.
+Sweep is an autonomous AI agent designed to turn GitHub issues into reviewed, ready-to-merge pull requests.
 
 ### How We Differ
-SonarQube operates strictly via deterministic pattern-matching and requires developers to write the remediation manually, whereas our bot proactively writes verified fix commits with explanatory context.
+Sweep focuses on issue-to-code creation; our bot focuses specifically on the 4.5-day PR bottleneck, running verified remediations on existing PR diffs with strict token gating, AST filtering, and enterprise security audit compliance.
+
+## Snyk Autofix
+
+**Founded:** 2015
+
+### Their Idea
+Automated vulnerability detection and dependency patch generation.
+
+### Short Bio
+Snyk provides developer security platforms to find and automatically fix vulnerabilities in code, dependencies, containers, and IaC.
+
+### How We Differ
+Snyk relies on static vulnerability patterns and standard package upgrades; our bot handles broader architectural reviews, logic refactors, and dynamically validates remediations against custom repo unit tests in an isolated sandbox.
 
 ## Market landscape
 
-The market is divided into traditional static analysis tools (SonarQube, ESLint) that flag issues without fixing them, security-first platforms (Snyk, Dependabot) that automatically open pull requests for known CVEs, and modern generative AI PR review agents (CodeRabbit, Qodo) that provide contextual code critiques. A critical gap remains in combining code reviews with automated patch verification, as current AI review bots often flood reviewers with speculative comments rather than validated, compilable fixes.
+The market is shifting rapidly from passive static analysis (SAST/linters) and advisory AI review bots (which offer text-based suggestions but risk hallucinations and CI churn) toward autonomous agentic remediation. Key industry challenges center on runner cost spikes, supply-chain vulnerabilities from unvetted AI packages, and SOC2 compliance concerns.
 
 ## Our positioning
 
-We position ourselves as a verified remediation agent rather than just another noisy PR reviewer. By executing patches inside isolated sandboxes to confirm green test builds before code presentation, filtering PR triggers via AST diffs to keep CI and token costs predictable, and enforcing strict human-only GPG commit sign-offs, we provide enterprise teams with guaranteed correctness, zero auto-merge risk, and measurable reductions in review latency.
+We position ourselves as a closed-loop, verified remediation agent engineered for enterprise governance. Unlike competitors that stop at advisory comments or unverified patch generation, we guarantee test-backed correctness via isolated execution sandboxes, cost-conscious AST and status triggering, and strict GPG-signed human sign-offs.
 
 ## Sources
 - https://coderabbit.ai
-- https://snyk.io
 - https://www.qodo.ai
-- https://www.sonarsource.com
+- https://sweep.dev
+- https://snyk.io

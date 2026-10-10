@@ -1,146 +1,136 @@
 {
-  "summary": "Technical system architecture for an Autonomous Code Review and Security Remediation platform. The architecture ingests filtered pull request webhooks, isolates relevant AST diffs to minimize token overhead, prompts an LLM for targeted security/performance patches, verifies candidates inside warm ephemeral test sandboxes, GPG-signs validated patches, and publishes suggested commits to VCS alongside an immutable audit trail requiring explicit human approval.",
+  "summary": "Technical system architecture for the Autonomous Code Review & Security Remediation Bot. The system ingests 'ready-for-review' webhook events from GitHub/GitLab, filters PR diffs using an AST semantic parser to optimize token usage, orchestrates LLM remediation proposals, validates generated patches inside isolated ephemeral sandbox environments via the repository test suite, records all operations in an immutable SOC2 audit log, and submits signed, suggested commits requiring human review without auto-merging.",
   "nodes": [
     {
-      "id": "vcs_platform",
-      "label": "GitHub / GitLab Platform",
-      "description": "Source control system hosting repositories, triggering PR events, and receiving review comments and suggested commits.",
+      "id": "git_platform",
+      "label": "GitHub / GitLab VCS",
+      "description": "Source control management emitting pull request lifecycle events and receiving review comments and suggested commits.",
       "component_type": "external"
     },
     {
       "id": "webhook_gateway",
       "label": "Webhook Ingestion Gateway",
-      "description": "Validates cryptographic webhook signatures and filters events, rejecting draft PRs and only queueing 'ready_for_review' actions.",
+      "description": "Validates HMAC signatures, enforces 'ready-for-review' state gating (ignoring draft PRs), and throttles requests.",
       "component_type": "api"
     },
     {
-      "id": "ast_diff_engine",
-      "label": "AST Diff & Semantic Parser",
-      "description": "Extracts syntactic code diffs, stripping irrelevant noise and isolating relevant AST subtrees to reduce token consumption by up to 80%.",
-      "component_type": "worker"
-    },
-    {
-      "id": "job_queue",
-      "label": "Remediation Task Queue",
-      "description": "Distributed queue (e.g., AWS SQS or Redis Streams) managing asynchronous review and test validation jobs.",
+      "id": "event_queue",
+      "label": "PR Review Job Queue",
+      "description": "Durable Redis / SQS message queue holding pending review and remediation jobs.",
       "component_type": "queue"
     },
     {
-      "id": "remediation_orchestrator",
-      "label": "Remediation Orchestration Engine",
-      "description": "Coordinates LLM inference, sandbox test execution loops, commit assembly, and validation gating.",
+      "id": "diff_filter_service",
+      "label": "AST Semantic Diff Parser",
+      "description": "Parses pull request diffs into abstract syntax trees to strip irrelevant files, isolate changed functions, and optimize token usage by ~80%.",
       "component_type": "worker"
     },
     {
-      "id": "llm_inference",
-      "label": "Secure LLM Gateway",
-      "description": "Enterprise model interface performing static vulnerability detection, N+1 detection, and patch synthesis with strict data-retention boundaries.",
+      "id": "review_orchestrator",
+      "label": "Review & Remediation Orchestrator",
+      "description": "Coordinates analysis workflows, manages remediation loop cycles, prompts LLMs, and triggers test sandbox runs.",
+      "component_type": "worker"
+    },
+    {
+      "id": "llm_engine",
+      "label": "LLM Remediation API",
+      "description": "Enterprise-gated model API used for vulnerability explanation, N+1 query detection, and automated patch generation.",
       "component_type": "model"
     },
     {
-      "id": "sandbox_runner",
-      "label": "Ephemeral Test Sandbox Pool",
-      "description": "Snapshot-cached microVM/container environment (e.g., Firecracker / Docker) that checks out patches and executes the repo test suite.",
+      "id": "sandbox_manager",
+      "label": "Ephemeral Sandbox Runner (Docker/gVisor)",
+      "description": "Spins up cached container snapshots to execute the target repository test suite, validating that suggested patches compile and pass tests.",
       "component_type": "worker"
     },
     {
       "id": "gpg_signing_service",
-      "label": "GPG Commit Signing Service",
-      "description": "Internal HSM or key management module that cryptographically signs approved bot commits prior to git publication.",
+      "label": "GPG Patch Signer & Commit Formatter",
+      "description": "Signs validated remediation diffs cryptographically with bot GPG keys and formats rich PR comments with safety scores.",
       "component_type": "security"
     },
     {
       "id": "audit_vault",
-      "label": "Append-Only Audit Vault",
-      "description": "Immutable datastore recording original diffs, LLM prompts, sandbox execution traces, and cryptographic commit hashes for SOC2 compliance.",
+      "label": "Immutable Audit Vault & Log Store",
+      "description": "Append-only SOC2-compliant database tracking prompts, generated diffs, test execution logs, and author verification states.",
       "component_type": "database"
     },
     {
       "id": "human_reviewer",
-      "label": "Engineering Human-in-the-Loop",
-      "description": "Mandatory developer approval boundary; reviews contextual explanations, diffs, and benchmark metrics to manually approve/merge.",
+      "label": "Human Engineer Sign-Off",
+      "description": "Developer review boundary that inspects interactive diffs, benchmark metrics, and explicitly approves or merges the suggested commit.",
       "component_type": "client"
     }
   ],
   "edges": [
     {
-      "source": "vcs_platform",
+      "source": "git_platform",
       "target": "webhook_gateway",
-      "label": "PR ready_for_review webhook"
+      "label": "PR 'Ready for Review' Webhook"
     },
     {
       "source": "webhook_gateway",
-      "target": "ast_diff_engine",
-      "label": "Raw PR diff payload"
+      "target": "event_queue",
+      "label": "Enqueue Validated PR Task"
     },
     {
-      "source": "ast_diff_engine",
-      "target": "job_queue",
-      "label": "Enqueue parsed AST chunks"
+      "source": "event_queue",
+      "target": "diff_filter_service",
+      "label": "Pull Job for Diff Analysis"
     },
     {
-      "source": "job_queue",
-      "target": "remediation_orchestrator",
-      "label": "Consume remediation job"
+      "source": "diff_filter_service",
+      "target": "review_orchestrator",
+      "label": "Pruned AST Chunks"
     },
     {
-      "source": "remediation_orchestrator",
-      "target": "llm_inference",
-      "label": "AST chunk + system prompt"
+      "source": "review_orchestrator",
+      "target": "llm_engine",
+      "label": "Prompt with Filtered Code & Vulnerability Context"
     },
     {
-      "source": "llm_inference",
-      "target": "remediation_orchestrator",
-      "label": "Candidate patch & rationale"
+      "source": "llm_engine",
+      "target": "review_orchestrator",
+      "label": "Proposed Code Patch & Explanation"
     },
     {
-      "source": "remediation_orchestrator",
-      "target": "sandbox_runner",
-      "label": "Dispatch patch to warm container"
+      "source": "review_orchestrator",
+      "target": "sandbox_manager",
+      "label": "Apply Patch & Execute Test Suite"
     },
     {
-      "source": "sandbox_runner",
-      "target": "remediation_orchestrator",
-      "label": "Test suite exit code & perf metrics"
+      "source": "sandbox_manager",
+      "target": "review_orchestrator",
+      "label": "Test Pass/Fail Results & Benchmarks"
     },
     {
-      "source": "remediation_orchestrator",
+      "source": "review_orchestrator",
+      "target": "audit_vault",
+      "label": "Persist Execution & Patch Audit Trail"
+    },
+    {
+      "source": "review_orchestrator",
       "target": "gpg_signing_service",
-      "label": "Request commit signature (if tests pass)"
+      "label": "Send Verified Patch"
     },
     {
       "source": "gpg_signing_service",
-      "target": "remediation_orchestrator",
-      "label": "Signed git commit object"
+      "target": "git_platform",
+      "label": "Publish GPG-Signed Suggested Commit & Comment"
     },
     {
-      "source": "remediation_orchestrator",
-      "target": "audit_vault",
-      "label": "Persist run log, diff, and provenance"
-    },
-    {
-      "source": "remediation_orchestrator",
-      "target": "vcs_platform",
-      "label": "Submit signed commit & review comment"
-    },
-    {
-      "source": "vcs_platform",
+      "source": "git_platform",
       "target": "human_reviewer",
-      "label": "Present suggested fix & metrics"
+      "label": "Present PR Diff, Safety Score, & Benchmarks"
     },
     {
       "source": "human_reviewer",
-      "target": "vcs_platform",
-      "label": "Explicit manual PR approval / merge"
-    },
-    {
-      "source": "vcs_platform",
-      "target": "audit_vault",
-      "label": "Log human approval & merge event"
+      "target": "git_platform",
+      "label": "Human Approval / Merge Sign-Off"
     }
   ],
-  "mermaid_code": "flowchart TD\n  subgraph VCS [Version Control & Humans]\n    vcs_platform[GitHub / GitLab Platform]\n    human_reviewer[Human Engineer / Reviewer]\n  end\n\n  subgraph Ingestion [Ingestion & Token Optimization]\n    webhook_gateway[Webhook Ingestion Gateway]\n    ast_diff_engine[AST Diff & Semantic Parser]\n    job_queue[(Remediation Task Queue)]\n  end\n\n  subgraph Core [Remediation Engine]\n    remediation_orchestrator[Remediation Orchestration Engine]\n    llm_inference[Secure LLM Gateway]\n    sandbox_runner[Ephemeral Test Sandbox Pool]\n    gpg_signing_service[GPG Commit Signing Service]\n  end\n\n  subgraph Compliance [Security & Audit]\n    audit_vault[(Append-Only Audit Vault)]\n  end\n\n  vcs_platform -->|PR ready_for_review| webhook_gateway\n  webhook_gateway -->|Raw PR diff| ast_diff_engine\n  ast_diff_engine -->|Filtered AST chunks| job_queue\n  job_queue -->|Pop job| remediation_orchestrator\n  remediation_orchestrator -->|AST prompt| llm_inference\n  llm_inference -->|Candidate patch| remediation_orchestrator\n  remediation_orchestrator -->|Run test suite| sandbox_runner\n  sandbox_runner -->|Pass/Fail + Metrics| remediation_orchestrator\n  remediation_orchestrator -->|Sign verified patch| gpg_signing_service\n  gpg_signing_service -->|GPG-signed commit| remediation_orchestrator\n  remediation_orchestrator -->|Write run trace| audit_vault\n  remediation_orchestrator -->|Push suggested commit| vcs_platform\n  vcs_platform -->|Review patch & report| human_reviewer\n  human_reviewer -->|Manual merge| vcs_platform\n  vcs_platform -.->|Audit merge event| audit_vault",
-  "image_prompt": "Clean, isometric 3D architectural diagram of an autonomous software engineering review system. On the left, GitHub and GitLab logos connect via webhooks to an ingestion pipeline. In the center, an orchestration node interfaces with an isolated container sandbox cluster surrounded by shield icons, an LLM processor, and a cryptographic signing key module. On the right, an append-only compliance vault and a human verification checkpoint display green checkmarks and interactive diff graphs on a sleek dark-mode glassmorphism interface.",
+  "mermaid_code": "flowchart LR\n  subgraph External_VCS [Version Control System]\n    GP[GitHub / GitLab VCS]\n    HR[Human Engineer Sign-Off]\n  end\n\n  subgraph Ingestion [Ingestion & Queuing]\n    WG[Webhook Ingestion Gateway]\n    EQ[(PR Review Job Queue)]\n  end\n\n  subgraph Processing [Analysis & Orchestration]\n    DFS[AST Semantic Diff Parser]\n    RO[Review & Remediation Orchestrator]\n    LLM[[LLM Remediation API]]\n  end\n\n  subgraph Verification [Sandbox & Security]\n    SM[Ephemeral Sandbox Runner]\n    GPG[GPG Patch Signer]\n    AV[(Immutable Audit Vault)]\n  end\n\n  GP -->|PR Ready-for-Review| WG\n  WG -->|Enqueue Task| EQ\n  EQ -->|Fetch Job| DFS\n  DFS -->|Parsed AST Chunks| RO\n  RO -->|Prompt Context| LLM\n  LLM -->|Proposed Patch| RO\n  RO -->|Run Repo Tests| SM\n  SM -->|Test Status & Metrics| RO\n  RO -->|Record Trail| AV\n  RO -->|Verified Patch| GPG\n  GPG -->|Suggested Commit & Explanations| GP\n  GP -->|Interactive Diff & Safety Score| HR\n  HR -->|Manual Approve / Merge| GP",
+  "image_prompt": "A modern, high-tech architectural system diagram showing an automated code review and closed-loop security bot. Clean layout with dark slate background, glowing neon blue, violet, and amber lines connecting Docker sandbox containers, code diff AST nodes, an enterprise LLM node, and cryptographic signing badges, terminating at a human review checkpoint.",
   "image_url": null,
-  "generated_at": 1791644138.8214412
+  "generated_at": 1791644480.0167582
 }

@@ -1,4 +1,4 @@
-import json
+import asyncio
 from typing import Optional
 from ..models import Idea, CompetitorEnrichment, CompetitorItem
 from ..llm_client import llm_client
@@ -20,23 +20,14 @@ class CompetitorAgent:
         uses_gemini_grounding = provider == "gemini" or (
             provider == "auto" and bool(llm_client.gemini_key)
         )
-        # Keep an independent web-search fallback even when Gemini grounding is
-        # enabled. Some model/search combinations can return no candidates; the
-        # same prompt can then retry without the tool while retaining sources.
-        search_results = (
-            []
+        search_task = (
+            None
             if provider == "mock"
-            else await llm_client.search_web(search_query, num_results=4)
+            else asyncio.create_task(llm_client.search_web(search_query, num_results=4))
         )
 
-        search_context_str = ""
-        if search_results:
-            search_context_str = "\n".join(
-                [f"- {r.get('title')}: {r.get('snippet')} ({r.get('url')})" for r in search_results]
-            )
-
-        # 2. Construct LLM prompt
-        prompt = f"""
+        def build_prompt(search_context_str: str = "") -> str:
+            return f"""
 You are a Market Intelligence & Competitor Research AI Agent for a brainstorming session.
 
 IDEA DETAILS:
@@ -78,13 +69,43 @@ Return your response in pure JSON format matching this schema:
 """
 
         system_instruction = "You are an expert startup analyst specializing in competitive landscapes and strategic positioning. Always respond in valid JSON."
-
-        # Enable Gemini search grounding if Gemini is active
-        raw_output = await llm_client.generate_json(
-            prompt=prompt,
-            system_instruction=system_instruction,
-            enable_search=uses_gemini_grounding
-        )
+        search_results = []
+        if uses_gemini_grounding:
+            try:
+                raw_output = await llm_client.generate_json(
+                    prompt=build_prompt(),
+                    system_instruction=system_instruction,
+                    enable_search=True,
+                )
+            except Exception:
+                search_results = await search_task if search_task else []
+                search_context = "\n".join(
+                    f"- {item.get('title')}: {item.get('snippet')} ({item.get('url')})"
+                    for item in search_results
+                )
+                raw_output = await llm_client.generate_json(
+                    prompt=build_prompt(search_context),
+                    system_instruction=system_instruction,
+                    enable_search=False,
+                )
+            else:
+                if raw_output.get("groundingSources"):
+                    if search_task and not search_task.done():
+                        search_task.cancel()
+                        await asyncio.gather(search_task, return_exceptions=True)
+                elif search_task:
+                    search_results = await search_task
+        else:
+            search_results = await search_task if search_task else []
+            search_context = "\n".join(
+                f"- {item.get('title')}: {item.get('snippet')} ({item.get('url')})"
+                for item in search_results
+            )
+            raw_output = await llm_client.generate_json(
+                prompt=build_prompt(search_context),
+                system_instruction=system_instruction,
+                enable_search=False,
+            )
 
         competitors = []
         raw_competitors = raw_output.get("competitors")

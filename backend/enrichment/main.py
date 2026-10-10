@@ -9,6 +9,7 @@ from typing import List, Optional, Dict, Any
 from .config import (
     DEFAULT_PROVIDER,
     GEMINI_MODEL,
+    GEMINI_FAST_MODEL,
     OPENAI_MODEL,
     SERVER_HOST,
     SERVER_PORT,
@@ -76,7 +77,11 @@ async def health_check():
         "service": "enrichment",
         "api_revision": "idea-artifacts-v4",
         "default_provider": DEFAULT_PROVIDER,
-        "models": {"gemini": GEMINI_MODEL, "openai": OPENAI_MODEL},
+        "models": {
+            "gemini": GEMINI_MODEL,
+            "gemini_fast": GEMINI_FAST_MODEL,
+            "openai": OPENAI_MODEL,
+        },
         "model_ping": "/models/ping?provider=all",
     }
 
