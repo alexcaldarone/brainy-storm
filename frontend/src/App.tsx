@@ -299,7 +299,7 @@ function App() {
 
       <aside className={`transcript-sidebar ${transcriptOpen ? 'mobile-open' : ''}`} aria-label="Live transcript">
         <div className="transcript-header">
-          <div><div className="transcript-title-row"><h2>Transcript</h2><button type="button" className="icon-button small mobile-close" onClick={() => setTranscriptOpen(false)} aria-label="Close transcript"><X size={16} /></button></div><p><span className={`transcript-live ${recording === 'recording' ? 'is-live' : ''}`} />{recording === 'recording' ? 'Live transcription' : recording === 'paused' ? 'Transcription paused' : 'Ready to record'}</p></div>
+          <div><div className="transcript-title-row"><h2>Transcript</h2><button type="button" className="icon-button small mobile-close" onClick={() => setTranscriptOpen(false)} aria-label="Close transcript"><X size={16} /></button></div></div>
           <details className="transcript-options" onBlur={event => {
             if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false
           }} onKeyDown={event => {
