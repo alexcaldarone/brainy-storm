@@ -388,3 +388,19 @@
   .recording-time { display: none; }
   .recording-dock { flex-wrap: wrap; padding: 8px; }
 }
+
+.search-shortcut { flex-shrink: 0; white-space: nowrap; }
+.session-search > svg { flex-shrink: 0; }
+.sidebar-bottom { flex-shrink: 0; }
+.collaborator-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.collaborator-actions .member-stack { display: flex; }
+.collaborator-actions .share-button { display: inline-grid; }
+.idea-page-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; }
+.board-heading-row > div:first-child { min-width: 0; }
+.board-heading-row h1 { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .board-heading-row, .idea-page-toolbar { flex-wrap: wrap; gap: 14px; }
+  .collaborator-actions { gap: 5px; }
+  .sidebar-bottom .profile-row { width: 100%; justify-content: flex-start; }
+  .sidebar-bottom .profile-copy { display: grid; }
+}

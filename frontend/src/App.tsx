@@ -16,7 +16,6 @@ import {
   Play,
   Plus,
   Search,
-  Settings2,
   Share2,
   Sparkles,
   Square,
@@ -134,6 +133,19 @@ function App() {
     )
   }
 
+  const collaboratorActions = (
+    <div className="collaborator-actions">
+      <div className="member-stack" aria-label="4 participants">
+        <span className="member-avatar avatar-one">AC</span>
+        <span className="member-avatar avatar-two">GC</span>
+        <span className="member-avatar avatar-three">MH</span>
+        <span className="member-more">+1</span>
+      </div>
+      <button type="button" className="icon-button share-button" aria-label="Share session"><Share2 size={16} /></button>
+      <button type="button" className="icon-button transcript-toggle" onClick={() => setTranscriptOpen(true)} aria-label="Open transcript"><AudioLines size={16} /></button>
+    </div>
+  )
+
   return (
     <div className="app-shell">
       <aside className="session-sidebar" aria-label="Brainstorming sessions">
@@ -178,30 +190,21 @@ function App() {
             {visibleSessions.length === 0 && <p className="empty-search">No brainstorms or ideas found</p>}
           </div>
         </nav>
+        <div className="sidebar-bottom">
+          <button type="button" className="profile-row" aria-label="Leonarda Lovrić profile">
+            <span className="profile-avatar">LL</span>
+            <span className="profile-copy"><strong>Leonarda Lovrić</strong><small>Personal workspace</small></span>
+            <MoreHorizontal size={17} />
+          </button>
+        </div>
       </aside>
 
       <main className="main-column">
-        <header className="topbar">
-          <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><button type="button" className="text-button" onClick={() => setSelectedIdea(null)}>{activeSession}</button>{currentIdea && <><span className="breadcrumb-slash">/</span><strong>{currentIdea.title}</strong></>}</div>
-          <div className="topbar-actions">
-            <div className="member-stack" aria-label="4 participants">
-              <span className="member-avatar avatar-one">AC</span>
-              <span className="member-avatar avatar-two">GC</span>
-              <span className="member-avatar avatar-three">MH</span>
-              <span className="member-more">+1</span>
-            </div>
-            <span className="topbar-divider" />
-            <button type="button" className="icon-button share-button" aria-label="Share session"><Share2 size={16} /></button>
-            <button type="button" className="icon-button transcript-toggle" onClick={() => setTranscriptOpen(true)} aria-label="Open transcript"><AudioLines size={16} /></button>
-            <button type="button" className="avatar-self" aria-label="Your profile">LL</button>
-          </div>
-        </header>
-
         <section className="board-scroll">
           <div className="board-content">
             {ideasError && <InfoBanner message={ideasError} />}
             {currentIdea ? <article className="idea-page">
-              <button type="button" className="text-button" onClick={() => setSelectedIdea(null)}>← Back to {activeSession}</button>
+              <div className="idea-page-toolbar"><button type="button" className="text-button" onClick={() => setSelectedIdea(null)}>← Back to {activeSession}</button>{collaboratorActions}</div>
               <FileText size={28} />
               <h1>{currentIdea.title}</h1>
               <span className="idea-tag">{currentIdea.tag}</span>
@@ -212,7 +215,7 @@ function App() {
                 <div className="eyebrow"><span className="live-dot" /> LIVE BRAINSTORM <span className="eyebrow-divider">·</span> TODAY, 10:26 AM</div>
                 <h1>{activeSession}</h1>
               </div>
-              <button type="button" className="outline-button board-options"><Settings2 size={15} /><span>Board settings</span></button>
+              {collaboratorActions}
             </div>
 
             <div className="board-section-heading">
