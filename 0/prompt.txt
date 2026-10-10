@@ -1,0 +1,5 @@
+make this local setup up to date
+
+---
+
+how do i make all my commits visible on entire
