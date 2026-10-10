@@ -1,0 +1,10 @@
+{
+    "ideas": [
+        {
+            "id": "1",
+            "title": "new title",
+            "short-summary": "new short summary",
+            "another-attribute": "any new things we want the frontend to show"
+        }
+    ]
+}

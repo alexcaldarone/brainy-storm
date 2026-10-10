@@ -1,0 +1,15 @@
+{
+    "chunks": [
+        {
+            "chunk": "the-content-of-the-chunk",
+            "ideas": [
+                {
+                    "id": "idea-1",
+                    "title": "title of the idea, usually unchanged, but can change, id is fixed",
+                    "short-summary": "short summary of the idea, one line, brief"
+                }
+            ],
+            "has_been_processsed": false
+        }
+    ]
+}
