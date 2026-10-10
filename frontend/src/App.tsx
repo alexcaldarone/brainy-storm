@@ -31,9 +31,6 @@ import { useTranscription } from './useTranscription'
 
 const initialSessions: Session[] = [
   { name: 'Hackathon', date: 'Today', ideas: repositoryIdeas.ideas.length },
-  { name: 'Agent onboarding', date: 'Yesterday', ideas: 8 },
-  { name: 'Community launch', date: 'Oct 08', ideas: 5 },
-  { name: 'A better daily standup', date: 'Oct 04', ideas: 3 },
 ]
 
 function InfoBanner({ message, role = 'status' }: { message: string; role?: 'status' | 'alert' }) {
@@ -53,7 +50,12 @@ function App() {
     try { return readWorkspace(localStorage.getItem(workspaceKey)) } catch { return null }
   })
   const [storageError, setStorageError] = useState(false)
-  const [sessions, setSessions] = useState(restored?.sessions || initialSessions)
+  const [sessions, setSessions] = useState(() => {
+    const candidates = restored?.sessions || initialSessions
+    return candidates
+      .filter(session => session.name === 'Hackathon' || Boolean(restored?.sessionIdeas[session.name]?.length))
+      .map(session => ({ ...session, ideas: restored?.sessionIdeas[session.name]?.length ?? session.ideas }))
+  })
   const [activeSession, setActiveSession] = useState('Hackathon')
   const [search, setSearch] = useState('')
   const [sessionIdeas, setSessionIdeas] = useState<Record<string, Idea[]>>(() => ({
@@ -81,6 +83,18 @@ function App() {
       setStorageError(false)
     } catch { setStorageError(true) }
   }, [sessions, sessionIdeas])
+
+  useEffect(() => {
+    setSessions(current => {
+      const cleaned = current
+        .filter(session => session.name === 'Hackathon' || session.name === activeSession || Boolean(sessionIdeas[session.name]?.length))
+        .map(session => ({ ...session, ideas: sessionIdeas[session.name]?.length || 0 }))
+      const unchanged = cleaned.length === current.length && cleaned.every((session, index) => (
+        session.name === current[index].name && session.ideas === current[index].ideas
+      ))
+      return unchanged ? current : cleaned
+    })
+  }, [activeSession, sessionIdeas])
 
   useLayoutEffect(() => {
     const feed = transcriptFeedRef.current

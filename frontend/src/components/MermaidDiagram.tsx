@@ -1,26 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import mermaid from 'mermaid'
 import { Code, Eye } from 'lucide-react'
 
 mermaid.initialize({
   startOnLoad: false,
-  theme: 'dark',
+  theme: 'base',
   securityLevel: 'loose',
+  flowchart: { curve: 'basis', htmlLabels: true },
   themeVariables: {
-    darkMode: true,
-    background: '#0b1120',
-    primaryColor: '#3b82f6',
-    primaryTextColor: '#f1f5f9',
-    primaryBorderColor: '#60a5fa',
-    lineColor: '#94a3b8',
-    secondaryColor: '#8b5cf6',
-    tertiaryColor: '#1e293b',
-    fontFamily: 'Inter, system-ui, sans-serif',
+    darkMode: false,
+    background: '#ffffff',
+    primaryColor: '#eef2ff',
+    primaryTextColor: '#18181b',
+    primaryBorderColor: '#818cf8',
+    lineColor: '#71717a',
+    secondaryColor: '#ecfeff',
+    tertiaryColor: '#fafafa',
+    fontFamily: 'Supreme, Inter, system-ui, sans-serif',
   },
 })
 
-export function MermaidDiagram({ code, idPrefix = 'mermaid' }: { code?: string | null; idPrefix?: string }) {
-  const containerRef = useRef<HTMLDivElement>(null)
+export function MermaidDiagram({ code, idPrefix = 'mermaid', label = 'Diagram' }: { code?: string | null; idPrefix?: string; label?: string }) {
   const [svg, setSvg] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [showRaw, setShowRaw] = useState(false)
@@ -55,9 +55,9 @@ export function MermaidDiagram({ code, idPrefix = 'mermaid' }: { code?: string |
   if (!code?.trim()) return null
 
   return (
-    <div className="mermaid-container">
+    <div className="mermaid-container" aria-label={label}>
       <div className="mermaid-header-bar">
-        <span className="diagram-type-tag">Mermaid Flowchart</span>
+        <span className="diagram-type-tag">Interactive map</span>
         <button
           type="button"
           className="code-toggle-btn"
@@ -81,7 +81,6 @@ export function MermaidDiagram({ code, idPrefix = 'mermaid' }: { code?: string |
         </div>
       ) : (
         <div
-          ref={containerRef}
           className="mermaid-rendered-svg"
           dangerouslySetInnerHTML={{ __html: svg }}
         />
