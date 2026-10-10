@@ -1,26 +1,26 @@
 """
-Test Client for Transcriber Service.
-Use this to test the transcription pipeline before the frontend is built!
+Manual microphone/WAV demo client for the Transcriber Service.
+Automated tests live in tests/; this client exercises the running service.
 
 Usage:
   1. Test with laptop microphone:
-     uv run python test_client.py --mic
+     uv run python demo_client.py --mic
 
   2. Test with a WAV audio file:
-     uv run python test_client.py --file path/to/sample.wav
+     uv run python demo_client.py --file path/to/sample.wav
 
   3. Test synthetic audio / ping server:
-     uv run python test_client.py
+     uv run python demo_client.py
 """
 
 import sys
-import os
 import json
 import asyncio
 import wave
 from pathlib import Path
 import numpy as np
 import websockets
+from websockets.exceptions import ConnectionClosed, InvalidURI
 
 SAMPLE_RATE = 24000
 CHUNK_DURATION = 0.08  # 80ms chunk
@@ -85,7 +85,6 @@ async def run_wav_streaming(ws, file_path: str):
             await asyncio.sleep(CHUNK_DURATION)
 
     print("   Finished streaming audio file.")
-    await ws.send(json.dumps({"action": "stop"}))
 
 
 async def run_synthetic_streaming(ws, duration_seconds: int = 5):
@@ -101,7 +100,6 @@ async def run_synthetic_streaming(ws, duration_seconds: int = 5):
         await asyncio.sleep(CHUNK_DURATION)
 
     print("   Finished sending synthetic audio.")
-    await ws.send(json.dumps({"action": "stop"}))
 
 
 async def listen_for_transcripts(ws):
@@ -117,9 +115,38 @@ async def listen_for_transcripts(ws):
                 print(f"📝 Transcribed: {data.get('text')} (at {data.get('timestamp')})")
             elif msg_type == "error":
                 print(f"❌ Server error: {data.get('message')}")
-                break
-    except websockets.exceptions.ConnectionClosed:
+    except ConnectionClosed:
         pass
+
+
+async def stream_until_complete(ws, audio_source, completion_timeout: float = 10):
+    """Send stop once and wait for server closure, including after Ctrl+C."""
+    sender = asyncio.create_task(audio_source)
+    listener = asyncio.create_task(listen_for_transcripts(ws))
+    try:
+        done, _ = await asyncio.wait((sender, listener), return_when=asyncio.FIRST_COMPLETED)
+        if sender in done:
+            sender.result()
+    except asyncio.CancelledError:
+        # asyncio.run delivers the first Ctrl+C by cancelling its main task.
+        print("\nStopping; waiting for the final transcript...")
+    finally:
+        if not sender.done():
+            sender.cancel()
+        await asyncio.gather(sender, return_exceptions=True)
+        try:
+            async with asyncio.timeout(completion_timeout):
+                if not listener.done():
+                    await ws.send(json.dumps({"action": "stop"}))
+                await listener
+        except TimeoutError:
+            print("❌ Timed out waiting for transcript completion; the final save is unconfirmed.")
+        except ConnectionClosed:
+            pass
+        finally:
+            if not listener.done():
+                listener.cancel()
+            await asyncio.gather(listener, return_exceptions=True)
 
 
 async def main():
@@ -144,31 +171,20 @@ async def main():
                     return
                 elif first_msg.get("type") == "ready":
                     print("⚡ Server confirmed: Ready for audio stream.")
-            except websockets.exceptions.ConnectionClosed as e:
+            except ConnectionClosed as e:
                 print(f"\n❌ Connection closed by server (code {e.code}): {e.reason or 'Policy violation / missing API key'}")
                 return
 
-            listener_task = asyncio.create_task(listen_for_transcripts(ws))
-
             # 2. Select stream source
             if use_mic:
-                sender_task = asyncio.create_task(run_mic_streaming(ws))
+                audio_source = run_mic_streaming(ws)
             elif wav_path:
-                sender_task = asyncio.create_task(run_wav_streaming(ws, wav_path))
+                audio_source = run_wav_streaming(ws, wav_path)
             else:
-                sender_task = asyncio.create_task(run_synthetic_streaming(ws, duration_seconds=5))
+                audio_source = run_synthetic_streaming(ws, duration_seconds=5)
+            await stream_until_complete(ws, audio_source)
 
-            try:
-                await sender_task
-                # Allow a short moment for final transcription responses
-                await asyncio.sleep(2)
-            except KeyboardInterrupt:
-                print("\nStopping...")
-            finally:
-                sender_task.cancel()
-                listener_task.cancel()
-
-    except websockets.exceptions.InvalidURI:
+    except InvalidURI:
         print(f"❌ Invalid URI: {SERVER_URL}")
         return
     except (ConnectionRefusedError, OSError):
