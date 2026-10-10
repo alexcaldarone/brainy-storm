@@ -47,7 +47,9 @@ const initialSessions: Session[] = [
 ]
 
 function InfoBanner({ message, role = 'status' }: { message: string; role?: 'status' | 'alert' }) {
-  return <div className="info-banner" role={role}><Info size={16} aria-hidden="true" /><span>{message}</span></div>
+  const [dismissed, setDismissed] = useState(false)
+  if (dismissed) return null
+  return <div className="info-banner" role={role}><Info size={16} aria-hidden="true" /><span>{message}</span><button type="button" aria-label="Dismiss notification" onClick={() => setDismissed(true)}><X size={16} /></button></div>
 }
 
 function App() {
@@ -57,6 +59,7 @@ function App() {
   const [sessionIdeas, setSessionIdeas] = useState<Record<string, Idea[]>>({})
   const [expanded, setExpanded] = useState<string[]>(['Hackathon'])
   const [ideasError, setIdeasError] = useState('')
+  const [showActivityNote, setShowActivityNote] = useState(true)
   const ideas = sessionIdeas[activeSession] || []
   const setIdeas = (update: (current: Idea[]) => Idea[]) => setSessionIdeas(current => ({ ...current, [activeSession]: update(current[activeSession] || []) }))
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
@@ -202,7 +205,8 @@ function App() {
       <main className="main-column">
         <section className="board-scroll">
           <div className="board-content">
-            {ideasError && <InfoBanner message={ideasError} />}
+            {ideasError && <InfoBanner key={ideasError} message={ideasError} />}
+            {showActivityNote && <div className="activity-note"><Sparkles size={14} /><span>Ideas are grouped as your team explores the topic.</span><button type="button" aria-label="Dismiss note" onClick={() => setShowActivityNote(false)}><X size={14} /></button></div>}
             {currentIdea ? <article className="idea-page">
               <div className="idea-page-toolbar"><button type="button" className="text-button" onClick={() => setSelectedIdea(null)}>← Back to {activeSession}</button>{collaboratorActions}</div>
               <FileText size={28} />
@@ -273,7 +277,6 @@ function App() {
               </div>
             )}
 
-            <div className="activity-note"><Sparkles size={14} /><span>Ideas are grouped as your team explores the topic.</span><button type="button" aria-label="Dismiss note"><X size={14} /></button></div>
             </>}
           </div>
         </section>
@@ -321,7 +324,7 @@ function App() {
           </details>
         </div>
         <div className="transcript-feed" ref={transcriptFeedRef} aria-live="polite">
-          {error && <InfoBanner message={error} role="alert" />}
+          {error && <InfoBanner key={error} message={error} role="alert" />}
           {!loaded && !error && <InfoBanner message="Loading existing transcript…" />}
           {loaded && transcript.length === 0 && <p>Start recording to capture your conversation.</p>}
           <div className="transcript-date"><span />TODAY<span /></div>
