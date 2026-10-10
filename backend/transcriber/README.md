@@ -1,23 +1,26 @@
-# Microphone transcriber
+# Browser recording server
 
-Streams the default microphone to Gradium and writes plain text to `data/transcript.txt` in the project root.
+The microphone lives in the browser. This single-file FastAPI service streams incoming 24 kHz mono signed 16-bit PCM to Gradium and appends plain text to `data/transcript.txt`.
 
-## Run
-
-From `backend/transcriber`, copy `.env.example` to `.env` and set your `GRADIUM_API_KEY`. Then run:
+Set `GRADIUM_API_KEY` in the root `.env` (or `backend/transcriber/.env` for local development). From this directory:
 
 ```bash
 uv run python main.py
 ```
 
-Run this in an interactive macOS/Linux terminal and allow microphone access if macOS asks. The input must support 24 kHz, mono, 16-bit PCM.
+The service listens on port 8000 with **one worker**. Use the frontend's Start, Stop, and Reset transcript buttons; terminal microphone and Space controls are no longer needed. For the complete four-service prototype, follow the root README and run `docker compose up --build`.
 
-Once the microphone and Gradium connection are ready, the script clears the transcript file. Every five seconds it appends the newly received text as one line and prints it to the terminal. Silent intervals add nothing. The file contains the whole current recording, without timestamps.
+| Interface | Behavior |
+| --- | --- |
+| WebSocket `/ws/transcribe` | Start: claim the single recording slot, connect Gradium, send `{"type":"ready"}`, then accept binary PCM. A second recorder receives an error. |
+| Socket `{"action":"stop"}` | Send end-of-stream once, drain for up to five seconds, save remaining text, close normally. Disconnects also drain and save. |
+| Socket `{"action":"flush"}` | Request a provider flush; file writes still follow the timer. |
+| `GET /transcript` | `{"transcript":"..."}` containing only persisted text. |
+| `POST /transcript/reset` | Atomically replace the transcript with an empty file. Return 409 during recording initialization, capture, or final saving. Keep ideas. |
+| `GET /health` | Local readiness without contacting Gradium. |
 
-- Press **Space** to pause the microphone and save buffered text immediately. Audio waiting to be sent is discarded; results for audio already sent may still be saved while paused.
-- Press **Space** again to resume. The existing transcript is preserved, and the next write happens five seconds after resuming.
-- Press **Ctrl+C** while recording or paused to save any remaining received text and exit. Words Gradium has not returned yet are not included.
+Live captions use `{"type":"transcript","text":"...","timestamp":"HH:MM:SS"}`. Failures use `{"type":"error","message":"..."}` and an abnormal close. A normal close confirms the final save. Provider shutdown timeout is reported as incomplete transcription; already received text is saved.
 
-Space works immediately, without Enter, while this terminal is focused. Pausing keeps the Gradium connection open. Normal terminal input and echo are restored on exit, including after an error.
+`WRITE_INTERVAL_SECONDS = 5` controls batching. Each nonempty batch appends one normalized line without a timestamp. Silence writes nothing. Start and service startup preserve existing contents; only Reset clears them. Read endpoints coordinate with writes. Direct file consumers must wait for a terminating newline before consuming an entry.
 
-Change `WRITE_INTERVAL_SECONDS = 5` at the top of `main.py` to adjust the interval. Run only one instance against the output file. Other components read the transcript file directly; there is no HTTP server or separate demo client.
+A failed file append terminates recording and is not retried because it may have partially succeeded. Pending text is in memory and cannot survive a forced process kill. Run only one transcriber process against the file.

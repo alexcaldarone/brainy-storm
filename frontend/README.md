@@ -1,73 +1,21 @@
-# Brainy Storm Frontend
+# Brainy Storm frontend
 
-This is the React + TypeScript frontend for Brainy Storm, a brainstorming workspace designed to help teams capture, organize, and vote on ideas during live conversations.
-
-## Overview
-
-The interface presents a collaborative idea board with:
-
-- a session sidebar for brainstorming spaces
-- searchable recent sessions
-- a live board for idea cards and voting
-- a recording/transcript dock for conversational context
-- saved ideas and lightweight session management
-
-The current UI is a polished concept prototype for the product experience and is built as a Vite app.
-
-## Tech Stack
-
-- React 19
-- TypeScript
-- Vite
-- Lucide React icons
-- Custom CSS styling
-
-## Project Structure
-
-```text
-frontend/
-├── src/
-│   ├── App.tsx
-│   ├── App.css
-│   ├── main.tsx
-│   └── index.css
-├── public/
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-├── README.md
-└── index.html
-```
-
-## Getting Started
-
-From the repository root:
+React + TypeScript + Vite. Use Node 22.
 
 ```bash
-cd frontend
-npm install
-npm run dev -- --host 0.0.0.0
+npm ci
+npm run dev
 ```
 
-Then open:
+Open http://localhost:5173. Run the transcriber on port 8000, the Node enrichment API on port 3000, and the engine alongside them (see the root README), or start the complete Docker stack with `docker compose up --build` from the repository root.
 
-```text
-http://localhost:5173
-```
+The browser captures the microphone after **Start**. **Stop** releases it and stays in **Saving…** until the server confirms the final file write. **Reset transcript** is available only while stopped and preserves generated ideas. All speech is labelled **Room**. Export downloads the persisted plain-text transcript.
 
-## Available Scripts
+Vite proxies `/api/transcriber/*` to port 8000 and `/api/enrichment/*` to port 3000's `/api/*` routes. Compose runs this same Vite server, sets the backend targets to Docker service names, and mounts the frontend source for immediate reloads. Dependencies stay in a container volume and are synchronized from the lockfile on startup. The frontend polls ideas every three seconds. Optional API-base overrides: `VITE_TRANSCRIBER_URL`, `VITE_ENRICHMENT_URL`.
+
+The prototype has one shared room. Other sidebar sessions and local card controls remain UI examples. Enrichment is available through the Node API but is not triggered by this UI.
 
 ```bash
-npm run dev      # start the Vite dev server
-npm run build    # type-check and build the app for production
-npm run preview  # preview the production build locally
-npm run lint     # run the project's linter
+npm run build
+npm run lint
 ```
-
-## Notes
-
-- The Hackathon board starts with the saved ideas in `data/ideas.json`, including when the backend is offline. Local edits and votes are preserved.
-- For live idea updates every three seconds, run the Python enrichment service on port 8001 (see [backend setup](../backend/enrichment/README.md)). Vite proxies `/enrichment/ideas` to that service. Set `VITE_IDEAS_URL` to a different API base URL if needed; it must expose `GET /ideas` returning an array. Production hosting must proxy `/enrichment` or supply this variable at build time.
-- Bundled ideas reflect the JSON at build time; rebuild to update the offline snapshot.
-- The `npm run dev` command is intended to be used while developing locally.
-- If the app is being served from another environment or a remote host, update the port/host settings as needed.

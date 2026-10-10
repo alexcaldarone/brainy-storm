@@ -6,14 +6,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/enrichment': {
-        target: 'http://127.0.0.1:8001',
-        rewrite: path => path.replace(/^\/enrichment/, ''),
-      },
-      '/api': {
-        target: 'http://127.0.0.1:8000',
+      '/api/transcriber': {
+        target: process.env.TRANSCRIBER_TARGET || 'http://127.0.0.1:8000',
         ws: true,
-        rewrite: path => path.replace(/^\/api/, ''),
+        rewrite: path => path.replace(/^\/api\/transcriber/, ''),
+      },
+      '/api/enrichment': {
+        target: process.env.ENRICHMENT_TARGET || 'http://127.0.0.1:3000',
+        rewrite: path => path.replace(/^\/api\/enrichment/, '/api'),
       },
     },
   },
