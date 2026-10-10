@@ -1,66 +1,78 @@
 import { useEffect, useRef, useState } from 'react'
 
 export type TranscriptLine = { person: string; initials: string; time: string; text: string }
-type Status = 'stopped' | 'connecting' | 'recording' | 'paused' | 'saving'
-const base = (import.meta.env.VITE_TRANSCRIBER_URL || '/api').replace(/\/$/, '')
+type Status = 'stopped' | 'connecting' | 'recording' | 'saving'
+const base = (import.meta.env.VITE_TRANSCRIBER_URL || '/api/transcriber').replace(/\/$/, '')
 
-function transcriptLine(text: string, time: string): TranscriptLine {
-  // Existing transcripts may encode the speaker as "Name: words".
-  const speaker = text.match(/^([\p{L}][\p{L}\p{M}'’.-]*(?:[ \t]+[\p{L}][\p{L}\p{M}'’.-]*){0,3}):[ \t]+(.+)$/u)
-  const person = speaker?.[1] || 'Room'
-  const initials = speaker
-    ? person.split(/\s+/).map(part => Array.from(part)[0]).slice(0, 2).join('').toUpperCase()
-    : 'RM'
-  return { person, initials, time, text: speaker?.[2] || text }
+function transcriptLine(text: string, time = ''): TranscriptLine {
+  return { person: 'Room', initials: 'RM', time, text }
 }
 
 export function useTranscription() {
   const [transcript, setTranscript] = useState<TranscriptLine[]>([])
   const [recording, setRecording] = useState<Status>('stopped')
+  const [resetting, setResetting] = useState(false)
   const [error, setError] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const resources = useRef<{ stream?: MediaStream; context?: AudioContext; node?: AudioWorkletNode; socket?: WebSocket }>({})
   const busy = useRef(false)
   const mounted = useRef(true)
-  const target = useRef<Status>('stopped')
+  const stopping = useRef(false)
+  const historyRequest = useRef(0)
+  const readyTimer = useRef<number | undefined>(undefined)
+  const completionTimer = useRef<number | undefined>(undefined)
+
+  function clearTimers() {
+    window.clearTimeout(readyTimer.current)
+    window.clearTimeout(completionTimer.current)
+  }
 
   function releaseAudio() {
     const r = resources.current
-    r.node?.disconnect()
-    r.stream?.getTracks().forEach(track => track.stop())
-    if (r.context) void r.context.close()
+    if (r.node) { r.node.port.onmessage = null; r.node.disconnect() }
+    r.stream?.getTracks().forEach(track => { track.onended = null; track.stop() })
+    if (r.context && r.context.state !== 'closed') void r.context.close().catch(() => {})
     r.node = undefined
     r.stream = undefined
     r.context = undefined
   }
 
-  async function loadTranscript(signal?: AbortSignal) {
-    const response = await fetch(`${base}/transcript`, { signal })
-    if (!response.ok) throw new Error('Could not load the existing transcript.')
+  async function readTranscript(signal = AbortSignal.timeout(8000)) {
+    const response = await fetch(`${base}/transcript`, { signal, cache: 'no-store' })
+    if (!response.ok) throw new Error('Could not load the persisted transcript.')
     const data = await response.json() as { transcript: string }
-    if (!mounted.current) return
-    setTranscript(data.transcript.split('\n').filter(line => line.trim()).map(line => {
-      const match = line.match(/^\[([^\]]+)\]\s*(.*)$/)
-      return transcriptLine(match?.[2] || line, match?.[1] || '')
-    }))
+    return data.transcript
+  }
+
+  async function loadTranscript(signal?: AbortSignal) {
+    const request = ++historyRequest.current
+    const text = await readTranscript(signal)
+    if (!mounted.current || request !== historyRequest.current) return
+    setTranscript(text.split('\n').filter(line => line.trim()).map(line => transcriptLine(line)))
     setLoaded(true)
+  }
+
+  function cleanupRecording() {
+    ++historyRequest.current
+    clearTimers()
+    releaseAudio()
+    const socket = resources.current.socket
+    resources.current.socket = undefined
+    if (socket?.readyState === WebSocket.OPEN && !stopping.current) socket.send(JSON.stringify({ action: 'stop' }))
+    socket?.close()
   }
 
   useEffect(() => {
     mounted.current = true
     const controller = new AbortController()
-    const activeResources = resources.current
-    void loadTranscript(controller.signal).catch(err => {
+    void loadTranscript(AbortSignal.any([controller.signal, AbortSignal.timeout(8000)])).catch(err => {
       if (!controller.signal.aborted) setError(`Backend unavailable: ${err.message}`)
     })
     return () => {
       mounted.current = false
       controller.abort()
-      releaseAudio()
-      const socket = activeResources.socket
-      if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ action: 'stop' }))
-      socket?.close()
+      cleanupRecording()
     }
   }, [])
 
@@ -70,15 +82,43 @@ export function useTranscription() {
     return () => window.clearInterval(timer)
   }, [recording])
 
+  function abandonConnection(message: string) {
+    clearTimers()
+    releaseAudio()
+    const socket = resources.current.socket
+    resources.current.socket = undefined
+    socket?.close()
+    busy.current = false
+    if (mounted.current) { setError(message); setRecording('stopped') }
+  }
+
+  function stopRecording() {
+    if (stopping.current) return
+    stopping.current = true
+    releaseAudio()
+    window.clearTimeout(readyTimer.current)
+    const socket = resources.current.socket
+    if (socket?.readyState !== WebSocket.OPEN) {
+      abandonConnection('Recording disconnected; final transcript saving was not confirmed.')
+      return
+    }
+    setRecording('saving')
+    completionTimer.current = window.setTimeout(() => {
+      abandonConnection('Saving was not confirmed within ten seconds. Check the transcript before recording again.')
+    }, 10000)
+    socket.send(JSON.stringify({ action: 'stop' }))
+  }
+
   async function startRecording() {
     if (busy.current) return
     busy.current = true
+    stopping.current = false
     setError('')
     setRecording('connecting')
-    target.current = 'stopped'
     try {
-      // Hydrate first so a late history response cannot overwrite live captions.
-      if (!loaded) await loadTranscript()
+      // Reload each time, including after another browser changed the room's file.
+      await loadTranscript()
+      if (!mounted.current) return
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone access requires localhost or HTTPS.')
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 }, video: false })
       if (!mounted.current) { stream.getTracks().forEach(track => track.stop()); return }
@@ -86,6 +126,7 @@ export function useTranscription() {
       const context = new AudioContext({ sampleRate: 24000 })
       resources.current.context = context
       await context.resume()
+      if (!mounted.current) { releaseAudio(); return }
       if (context.sampleRate !== 24000) throw new Error('This browser does not support 24 kHz microphone audio.')
       await context.audioWorklet.addModule('/pcm-worklet.js')
       if (!mounted.current) { releaseAudio(); return }
@@ -98,20 +139,15 @@ export function useTranscription() {
       let ready = false
       let failed = false
       stream.getAudioTracks()[0].onended = () => {
-        failed = true
         setError('Microphone disconnected. Recording stopped.')
         stopRecording()
       }
-      const timeout = window.setTimeout(() => {
-        failed = true
-        setError('The transcription service did not become ready. Try again.')
-        releaseAudio()
-        socket.close()
+      readyTimer.current = window.setTimeout(() => {
+        abandonConnection('The transcription service did not become ready. Try again.')
       }, 15000)
       node.port.onmessage = event => {
-        if (ready && socket.readyState === WebSocket.OPEN) {
+        if (ready && !stopping.current && socket.readyState === WebSocket.OPEN) {
           if (socket.bufferedAmount > 240000) {
-            failed = true
             setError('Connection too slow to record reliably. Please retry.')
             stopRecording()
             return
@@ -120,60 +156,88 @@ export function useTranscription() {
         }
       }
       socket.onmessage = event => {
-        const message = JSON.parse(event.data)
-        if (message.type === 'ready') {
-          window.clearTimeout(timeout)
-          ready = true
-          context.createMediaStreamSource(stream).connect(node)
-          node.connect(context.destination)
-          setRecording('recording')
-        } else if (message.type === 'transcript') {
-          setTranscript(current => [...current, transcriptLine(message.text, message.timestamp)])
-        } else if (message.type === 'error') {
+        if (!mounted.current || resources.current.socket !== socket) return
+        try {
+          const message = JSON.parse(event.data)
+          if (message.type === 'ready' && !stopping.current) {
+            window.clearTimeout(readyTimer.current)
+            ready = true
+            context.createMediaStreamSource(stream).connect(node)
+            node.connect(context.destination)
+            setRecording('recording')
+          } else if (message.type === 'transcript') {
+            setTranscript(current => [...current, transcriptLine(message.text, message.timestamp)])
+          } else if (message.type === 'error') {
+            failed = true
+            setError(message.message || 'Transcription failed.')
+            stopRecording()
+          }
+        } catch {
           failed = true
-          setError(message.message || 'Transcription failed.')
-          releaseAudio()
+          setError('The transcription service sent an invalid response.')
+          stopRecording()
         }
       }
-      socket.onerror = () => { failed = true; setError('Cannot connect to the transcription backend.') }
-      socket.onclose = event => {
-        window.clearTimeout(timeout)
+      socket.onerror = () => {
+        if (resources.current.socket === socket) abandonConnection('Cannot connect to the transcription backend; final saving was not confirmed.')
+      }
+      socket.onclose = async event => {
+        if (resources.current.socket !== socket) return
+        clearTimers()
         releaseAudio()
         resources.current.socket = undefined
-        busy.current = false
         if (!mounted.current) return
+        setRecording('saving')
         if (event.code !== 1000 && !failed) setError('Recording disconnected; final transcript saving was not confirmed.')
-        setRecording(target.current)
+        try {
+          // The close handshake confirms that the final append has finished.
+          if (event.code === 1000 && !failed) await loadTranscript()
+        } catch (err) {
+          setError(`Recording saved, but reload failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        } finally {
+          busy.current = false
+          if (mounted.current) setRecording('stopped')
+        }
       }
     } catch (err) {
-      releaseAudio()
-      busy.current = false
-      if (mounted.current) {
-        setError(err instanceof Error ? err.message : 'Could not start recording.')
-        setRecording('stopped')
+      abandonConnection(err instanceof Error ? err.message : 'Could not start recording.')
+    }
+  }
+
+  async function resetTranscript() {
+    if (busy.current) return
+    busy.current = true
+    setResetting(true)
+    setError('')
+    ++historyRequest.current
+    try {
+      const response = await fetch(`${base}/transcript/reset`, { method: 'POST', signal: AbortSignal.timeout(8000) })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || 'Could not reset transcript.')
       }
+      if (mounted.current) { setTranscript([]); setElapsedSeconds(0); setLoaded(true) }
+    } catch (err) {
+      if (mounted.current) setError(err instanceof Error ? err.message : 'Could not reset transcript.')
+    } finally {
+      busy.current = false
+      if (mounted.current) setResetting(false)
     }
   }
 
-  function stopRecording(pause = false) {
-    target.current = pause ? 'paused' : 'stopped'
-    releaseAudio()
-    const socket = resources.current.socket
-    if (socket?.readyState === WebSocket.OPEN) {
-      setRecording('saving')
-      socket.send(JSON.stringify({ action: 'stop' }))
+  async function exportTranscript() {
+    try {
+      const blob = new Blob([await readTranscript()], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'transcript.txt'
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      if (mounted.current) setError(err instanceof Error ? err.message : 'Could not export transcript.')
     }
   }
 
-  function exportTranscript() {
-    const blob = new Blob([transcript.map(line => `[${line.time}] ${line.person === 'Room' ? '' : `${line.person}: `}${line.text}`).join('\n')], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'transcript.txt'
-    link.click()
-    URL.revokeObjectURL(url)
-  }
-
-  return { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, exportTranscript }
+  return { transcript, recording, resetting, error, loaded, elapsedSeconds, startRecording, stopRecording, resetTranscript, exportTranscript }
 }

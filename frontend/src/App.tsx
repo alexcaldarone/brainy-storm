@@ -64,10 +64,10 @@ function App() {
   const setIdeas = (update: (current: Idea[]) => Idea[]) => setSessionIdeas(current => ({ ...current, [activeSession]: update(current[activeSession] || []) }))
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
   const [savedIdeas, setSavedIdeas] = useState<string[]>([])
-  const { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, exportTranscript } = useTranscription()
+  const { transcript, recording, resetting, error, loaded, elapsedSeconds, startRecording, stopRecording, resetTranscript, exportTranscript } = useTranscription()
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const transcriptFeedRef = useRef<HTMLDivElement>(null)
-  const transitioning = recording === 'connecting' || recording === 'saving'
+  const transitioning = recording === 'connecting' || recording === 'saving' || resetting
 
   useLayoutEffect(() => {
     const feed = transcriptFeedRef.current
@@ -79,7 +79,7 @@ function App() {
     let timer: ReturnType<typeof setTimeout>
     async function refresh() {
       try {
-        const base = (import.meta.env.VITE_TRANSCRIBER_URL || '/api').replace(/\/$/, '')
+        const base = (import.meta.env.VITE_ENRICHMENT_URL || '/api/enrichment').replace(/\/$/, '')
         const response = await fetch(`${base}/ideas`, { signal: controller.signal })
         if (!response.ok) throw new Error('Could not load generated ideas.')
         const data = await response.json() as { ideas: { id: number; title: string; summary: string }[] }
@@ -294,7 +294,10 @@ function App() {
             onClick={() => recording === 'recording' ? stopRecording() : void startRecording()}
           >
             {recording === 'recording' || recording === 'saving' ? <Square size={13} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-            <span>{recording === 'recording' || recording === 'saving' ? 'Stop' : 'Start'}</span>
+            <span>{recording === 'saving' ? 'Saving…' : recording === 'connecting' ? 'Connecting…' : recording === 'recording' ? 'Stop' : 'Start'}</span>
+          </button>
+          <button type="button" className="record-control reset-control" disabled={recording !== 'stopped' || resetting} onClick={() => void resetTranscript()}>
+            {resetting ? 'Resetting…' : 'Reset transcript'}
           </button>
         </footer>
       </main>

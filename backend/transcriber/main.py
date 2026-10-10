@@ -1,158 +1,242 @@
-"""Transcribe the default microphone to a text file in five-second batches."""
+"""Single-room browser recording server; plain transcript batches every five seconds."""
 
 import asyncio
+import json
+import logging
 import os
-import sys
-import termios
-import tty
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 import gradium
-import sounddevice as sd
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, WebSocket
 
 WRITE_INTERVAL_SECONDS = 5
-SAMPLE_RATE = 24000
-BLOCK_SIZE = 1920  # 80 ms of audio
+DRAIN_SECONDS = 5
 TRANSCRIPT_FILE = Path(__file__).resolve().parents[2] / "data" / "transcript.txt"
+logger = logging.getLogger("uvicorn.error")
+guard = asyncio.Lock()
+recording_active = False
 
 
-def write_batch(output, fragments):
-    if fragments:
-        text = " ".join(fragments)
-        fragments.clear()
+async def file_operation(function, *args, **kwargs):
+    # Cancellation must not release the guard while its worker still touches the file.
+    async with guard:
+        task = asyncio.create_task(asyncio.to_thread(function, *args, **kwargs))
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            await task
+            raise
+
+
+def append_batch(text):
+    with TRANSCRIPT_FILE.open("a", encoding="utf-8") as output:
         output.write(text + "\n")
         output.flush()
-        print(text, flush=True)
 
 
-async def send_audio(stt, audio_queue):
-    while True:
-        await stt.send_audio(await audio_queue.get())
-
-
-@contextmanager
-def keyboard_controls(loop, on_key):
-    stdin_fd = sys.stdin.fileno()
-    settings = termios.tcgetattr(stdin_fd)
+def replace_transcript():
+    temporary = TRANSCRIPT_FILE.with_suffix(".txt.tmp")
     try:
-        tty.setcbreak(stdin_fd)  # Read Space immediately while preserving Ctrl+C.
-        loop.add_reader(stdin_fd, on_key)
-        yield
+        temporary.write_text("", encoding="utf-8")
+        os.replace(temporary, TRANSCRIPT_FILE)
     finally:
-        loop.remove_reader(stdin_fd)
-        termios.tcsetattr(stdin_fd, termios.TCSADRAIN, settings)
+        temporary.unlink(missing_ok=True)
 
 
-async def main():
-    if not sys.stdin.isatty():
-        raise RuntimeError("Run this script in an interactive terminal to use Space and Ctrl+C")
+@asynccontextmanager
+async def lifespan(app):
     load_dotenv(Path(__file__).with_name(".env"))
     load_dotenv(Path(__file__).resolve().parents[2] / ".env")
-    api_key = os.getenv("GRADIUM_API_KEY", "").strip()
-    if not api_key or api_key == "your-gradium-api-key-here":
-        raise RuntimeError("Set GRADIUM_API_KEY in backend/transcriber/.env")
+    app.state.api_key = os.getenv("GRADIUM_API_KEY", "").strip()
+    if not app.state.api_key or app.state.api_key == "your-gradium-api-key-here":
+        raise RuntimeError("Set GRADIUM_API_KEY in the root .env before starting the transcriber")
+    TRANSCRIPT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    TRANSCRIPT_FILE.touch(exist_ok=True)
+    yield
 
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ready"}
+
+
+@app.get("/transcript")
+async def transcript():
+    try:
+        return {"transcript": await file_operation(TRANSCRIPT_FILE.read_text, encoding="utf-8")}
+    except OSError as exc:
+        logger.error("Cannot read transcript: %s", exc)
+        raise HTTPException(500, "Cannot read transcript") from exc
+
+
+@app.post("/transcript/reset")
+async def reset():
+    # Ownership check and replacement are atomic relative to Start and final saving.
+    async with guard:
+        if recording_active:
+            raise HTTPException(409, "Stop recording and wait for saving before resetting the transcript")
+        try:
+            replace_transcript()
+        except OSError as exc:
+            logger.error("Cannot reset transcript: %s", exc)
+            raise HTTPException(500, "Cannot reset transcript") from exc
+    return {"status": "reset"}
+
+
+@app.websocket("/ws/transcribe")
+async def transcribe(ws: WebSocket):
+    global recording_active
+    await ws.accept()
+    async with guard:
+        if recording_active:
+            await ws.send_json({"type": "error", "message": "Recording already active"})
+            await ws.close(code=1008)
+            return
+        recording_active = True
+
+    fragments = []
+    connected = True
+    failure = None
+    persistence_failed = False
+    stt = None
+    sender = receiver = eos = None
     loop = asyncio.get_running_loop()
-    audio_queue = asyncio.Queue()
-    paused = False
 
-    def enqueue_audio(data):
-        if not paused:
-            audio_queue.put_nowait(data)
+    async def caption(message):
+        nonlocal connected
+        if connected:
+            try:
+                await asyncio.wait_for(ws.send_json(message), timeout=1)
+            except (Exception, asyncio.CancelledError):
+                connected = False
+                # Main-task cancellation still needs to reach the final save.
+                if asyncio.current_task().cancelling():
+                    raise
 
-    def microphone_callback(indata, frames, time, status):
-        if status:
-            print(f"Microphone: {status}", file=sys.stderr)
-        if not paused:
-            loop.call_soon_threadsafe(enqueue_audio, bytes(indata))
+    async def receive_audio():
+        nonlocal connected
+        while True:
+            message = await ws.receive()
+            if message["type"] == "websocket.disconnect":
+                connected = False
+                return
+            if message.get("bytes") is not None:
+                audio = message["bytes"]
+                if len(audio) % 2:
+                    raise RuntimeError("Audio must be mono signed 16-bit PCM at 24 kHz")
+                await asyncio.wait_for(stt.send_audio(audio), timeout=5)
+            elif message.get("text") is not None:
+                action = json.loads(message["text"]).get("action")
+                if action == "stop":
+                    return
+                if action == "flush":
+                    await asyncio.wait_for(stt.send_flush(), timeout=5)
 
-    with sd.RawInputStream(
-        samplerate=SAMPLE_RATE, channels=1, dtype="int16",
-        blocksize=BLOCK_SIZE, callback=microphone_callback,
-    ) as microphone:
-        client = gradium.GradiumClient(api_key=api_key)
-        stt = client.stt_realtime(
+    async def save_batch(reason):
+        nonlocal persistence_failed
+        if not fragments or persistence_failed:
+            return
+        text = " ".join(fragments)
+        # Do not retry if an append partially succeeds before failing.
+        fragments.clear()
+        try:
+            await file_operation(append_batch, text)
+        except OSError as exc:
+            persistence_failed = True
+            raise RuntimeError(f"Transcript persistence failed: {exc}") from exc
+        logger.info("Saved %s batch (%d chars): %s", reason, len(text), text)
+
+    try:
+        stt = gradium.GradiumClient(api_key=app.state.api_key).stt_realtime(
             model_name="default", input_format="pcm",
             json_config={"language": "en"}, wait_for_ready_on_start=True,
         )
-        try:
-            # Close SDK resources even if connection setup fails.
-            await stt.__aenter__()
-            TRANSCRIPT_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with TRANSCRIPT_FILE.open("w", encoding="utf-8") as output:
-                fragments = []
-                sender = asyncio.create_task(send_audio(stt, audio_queue))
-                next_write = loop.time() + WRITE_INTERVAL_SECONDS
-                keyboard_error = None
-
-                def on_key():
-                    nonlocal paused, next_write, keyboard_error
-                    try:
-                        key = os.read(sys.stdin.fileno(), 1)
-                        if not key:
-                            raise RuntimeError("Terminal input closed")
-                        if key != b" ":
-                            return
-                        paused = not paused
-                        if paused:
-                            microphone.stop()
-                            while not audio_queue.empty():
-                                audio_queue.get_nowait()
-                            write_batch(output, fragments)
-                            print("Paused — press Space to resume.", flush=True)
-                        else:
-                            microphone.start()
-                            next_write = loop.time() + WRITE_INTERVAL_SECONDS
-                            print("Recording — press Space to pause.", flush=True)
-                    except Exception as exc:
-                        keyboard_error = exc
-                        loop.remove_reader(sys.stdin.fileno())
-
-                print(
-                    f"Recording to {TRANSCRIPT_FILE}. Press Space to pause; Ctrl+C to stop.",
-                    flush=True,
-                )
-                try:
-                    with keyboard_controls(loop, on_key):
-                        while True:
-                            if keyboard_error is not None:
-                                raise keyboard_error
-                            if sender.done():
-                                sender.result()
-                            try:
-                                message = await asyncio.wait_for(
-                                    stt.recv(), timeout=max(0, next_write - loop.time()),
-                                )
-                            except TimeoutError:
-                                pass  # A quiet stream still reaches the write deadline.
-                            else:
-                                if message is None or message.get("type") == "end_of_stream":
-                                    break
-                                if message.get("type") == "error":
-                                    raise RuntimeError(f"Gradium: {message.get('message', message)}")
-                                if message.get("type") == "text":
-                                    text = " ".join(message.get("text", "").split())
-                                    if text:
-                                        fragments.append(text)
-                            if loop.time() >= next_write:
-                                write_batch(output, fragments)
-                                next_write = loop.time() + WRITE_INTERVAL_SECONDS
-                finally:
+        await asyncio.wait_for(stt.__aenter__(), timeout=10)
+        await caption({"type": "ready"})
+        sender = asyncio.create_task(receive_audio())
+        receiver = asyncio.create_task(stt.recv())
+        next_write = loop.time() + WRITE_INTERVAL_SECONDS
+        drain_deadline = None
+        while True:
+            if drain_deadline is None and (sender.done() or not connected):
+                if sender.done():
+                    sender.result()
+                else:
                     sender.cancel()
-                    try:
-                        write_batch(output, fragments)
-                    finally:
-                        await asyncio.gather(sender, return_exceptions=True)
-        finally:
-            await stt.__aexit__(None, None, None)
+                    await asyncio.gather(sender, return_exceptions=True)
+                drain_deadline = loop.time() + DRAIN_SECONDS
+                eos = asyncio.create_task(stt.send_eos())
+            deadline = min(next_write, drain_deadline or float("inf"))
+            tasks = {receiver}
+            if drain_deadline is None:
+                tasks.add(sender)
+            if eos is not None:
+                tasks.add(eos)
+            done, _ = await asyncio.wait(tasks, timeout=max(0, deadline - loop.time()),
+                                         return_when=asyncio.FIRST_COMPLETED)
+            if eos in done:
+                eos.result()
+                eos = None
+            if receiver in done:
+                message = receiver.result()
+                if message is None or message.get("type") == "end_of_stream":
+                    break
+                if message.get("type") == "error":
+                    raise RuntimeError(f"Gradium: {message.get('message', message)}")
+                if message.get("type") == "text":
+                    text = " ".join(message.get("text", "").split())
+                    if text:
+                        fragments.append(text)
+                        await caption({"type": "transcript", "text": text,
+                                       "timestamp": datetime.now().strftime("%H:%M:%S")})
+                receiver = asyncio.create_task(stt.recv())
+            if loop.time() >= next_write:
+                await save_batch("periodic")
+                # Advance to the next future deadline, without catch-up writes.
+                next_write += (int((loop.time() - next_write) / WRITE_INTERVAL_SECONDS) + 1) * WRITE_INTERVAL_SECONDS
+            if drain_deadline is not None and loop.time() >= drain_deadline:
+                raise RuntimeError("Gradium shutdown timed out; received text was saved, but final results may be incomplete")
+    except asyncio.CancelledError:
+        failure = "Recording interrupted by server shutdown"
+        raise
+    except Exception as exc:
+        failure = str(exc)
+        logger.error("Recording failed: %s", failure)
+    finally:
+        tasks = [task for task in (sender, receiver, eos) if task is not None]
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            await save_batch("final")
+        except Exception as exc:
+            failure = str(exc)
+            logger.error("Final save failed: %s", failure)
+        if stt is not None:
+            try:
+                # __aenter__ can fail after opening the SDK's HTTP session.
+                await asyncio.wait_for(stt.__aexit__(None, None, None), timeout=2)
+            except Exception as exc:
+                failure = failure or f"Gradium connection cleanup failed: {exc}"
+                logger.error("%s", failure)
+        async with guard:
+            recording_active = False
+        if failure:
+            await caption({"type": "error", "message": failure})
+        if connected:
+            try:
+                await ws.close(code=1011 if failure else 1000)
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\nStopped.")
-    except Exception as exc:
-        sys.exit(f"Transcriber error: {exc}")
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000, timeout_graceful_shutdown=10)

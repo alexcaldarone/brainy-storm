@@ -53,8 +53,12 @@ class ChunkIdeas(BaseModel):
 
 
 def init_ideas(ideas_path: Path) -> None:
-    # Every run starts a fresh session, discarding ideas from previous runs.
-    save_ideas([], ideas_path)
+    ideas_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with ideas_path.open("x", encoding="utf-8") as output:
+            json.dump({"ideas": []}, output)
+    except FileExistsError:
+        pass
 
 
 def load_ideas(ideas_path: Path) -> list[dict]:
@@ -68,8 +72,18 @@ def save_ideas(ideas: list[dict], ideas_path: Path) -> None:
     os.replace(tmp_path, ideas_path)
 
 
-def read_pending(transcript_path: Path, offset: int) -> str:
-    return transcript_path.read_text(errors="replace")[offset:]
+def file_identity(path: Path) -> tuple[int, int]:
+    stat = path.stat()
+    return stat.st_dev, stat.st_ino
+
+
+def read_transcript(path: Path) -> tuple[tuple[int, int], str]:
+    # Read identity from the open file so a concurrent Reset cannot mix generations.
+    with path.open(encoding="utf-8", errors="replace") as source:
+        stat = os.fstat(source.fileno())
+        text = source.read()
+    # Direct file readers must wait for a complete newline-terminated batch.
+    return (stat.st_dev, stat.st_ino), text[:text.rfind("\n") + 1]
 
 
 def cut_chunk(pending: str, chunk_chars: int) -> str | None:
@@ -138,6 +152,7 @@ def main(
     request_timeout_s: float,
 ) -> None:
     load_dotenv(REPO_ROOT / ".env")
+    model = os.getenv("GEMINI_MODEL") or model
     client = genai.Client(
         api_key=os.environ["GEMINI_API_KEY"],
         http_options=types.HttpOptions(timeout=int(request_timeout_s * 1000)),
@@ -147,16 +162,33 @@ def main(
         model, chunk_chars, poll_interval_s, max_retries, request_timeout_s,
     )
     init_ideas(ideas_path)
-    logger.info("reset %s", ideas_path.relative_to(REPO_ROOT))
+    transcript_path.parent.mkdir(parents=True, exist_ok=True)
+    transcript_path.touch(exist_ok=True)
+    logger.info("using existing ideas in %s", ideas_path)
 
     offset = 0
+    identity = None
+    previous_length = 0
+    last_text_at = time.monotonic()
     chunk_number = 1
     last_waiting_chars = None
     while True:
         time.sleep(poll_interval_s)
         try:
-            pending = read_pending(transcript_path, offset)
+            current_identity, text = read_transcript(transcript_path)
+            if current_identity != identity:
+                identity = current_identity
+                offset = 0
+                previous_length = 0
+                last_text_at = time.monotonic()
+                logger.info("transcript replaced · reading from the beginning")
+            if len(text) != previous_length:
+                previous_length = len(text)
+                last_text_at = time.monotonic()
+            pending = text[offset:]
             chunk = cut_chunk(pending, chunk_chars)
+            if chunk is None and pending and time.monotonic() - last_text_at >= 10:
+                chunk = pending
             if chunk is None:
                 # Log only when the pending count changes, to keep idle ticks quiet.
                 if len(pending) != last_waiting_chars:
@@ -173,6 +205,9 @@ def main(
 
             # Re-read right before writing to keep edits made by enrichment during the API call.
             merged_ideas = merge_ideas(load_ideas(ideas_path), updates)
+            if file_identity(transcript_path) != identity:
+                logger.info("discarded response · source transcript was reset")
+                continue
             save_ideas(merged_ideas, ideas_path)
             logger.info("  saved · %s total", plural(len(merged_ideas), "idea"))
 
