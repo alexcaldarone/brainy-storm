@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any, Literal
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 import uuid
 import time
 
@@ -53,6 +53,10 @@ class Idea(BaseModel):
     summary: str = ""
     is_currently_discussed: bool = False
     transcript: Optional[str] = None
+    raw_body: str = Field(
+        default="",
+        description="Cumulative transcript excerpts relevant to this idea; canonical enrichment context",
+    )
     proponents: List[str] = Field(
         default_factory=list,
         description="Who supports the idea or arguments in favor"
@@ -75,6 +79,12 @@ class Idea(BaseModel):
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def backfill_raw_body_for_legacy_records(self):
+        if not self.raw_body and self.transcript:
+            self.raw_body = self.transcript
+        return self
 
 
 class ToolDecision(BaseModel):
@@ -112,6 +122,7 @@ class IdeaCreateUpdateRequest(BaseModel):
     title: str
     summary: Optional[str] = None
     transcript: Optional[str] = None
+    raw_body: Optional[str] = None
     proponents: List[str] = Field(default_factory=list)
     opponents: List[str] = Field(default_factory=list)
     thumbnail: Optional[str] = None
@@ -125,3 +136,12 @@ class TranscriptEnrichRequest(BaseModel):
     """
 
     transcript: Optional[str] = None
+
+
+class IdeaIngestRequest(BaseModel):
+    title: Optional[str] = None
+    transcript: str = Field(
+        min_length=1,
+        description="New full-session transcript or transcript delta to filter for this idea",
+    )
+    enrich: bool = True

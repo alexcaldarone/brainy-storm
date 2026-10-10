@@ -16,9 +16,13 @@ class CompetitorAgent:
 
         # 1. Gather web search context if possible
         search_query = f"{idea.title} {idea.summary[:80]} competitors alternatives"
+        provider = DEFAULT_PROVIDER.lower()
+        uses_gemini_grounding = provider == "gemini" or (
+            provider == "auto" and bool(llm_client.gemini_key)
+        )
         search_results = (
             []
-            if DEFAULT_PROVIDER.lower() == "mock"
+            if provider == "mock" or uses_gemini_grounding
             else await llm_client.search_web(search_query, num_results=4)
         )
 
@@ -52,6 +56,7 @@ TASK:
 
 Return your response in pure JSON format matching this schema:
 {{
+  "summary": "Concise conclusion from the competitor research",
   "competitors": [
     {{
       "name": "Competitor Name",
@@ -64,7 +69,8 @@ Return your response in pure JSON format matching this schema:
     }}
   ],
   "market_landscape": "Brief synthesis of current solutions in the market",
-  "our_positioning": "How our idea stands out and positions against these competitors"
+  "our_positioning": "How our idea stands out and positions against these competitors",
+  "groundingSources": ["https://source-used.example/page"]
 }}
 """
 
@@ -78,25 +84,42 @@ Return your response in pure JSON format matching this schema:
         )
 
         competitors = []
-        for c in raw_output.get("competitors", []):
+        raw_competitors = raw_output.get("competitors")
+        if not isinstance(raw_competitors, list):
+            raw_competitors = []
+        for c in raw_competitors:
             if isinstance(c, dict) and "name" in c:
+                summary = str(c.get("summary") or "Not provided")
+                differentiator = str(c.get("differentiator") or "Not provided")
                 competitors.append(CompetitorItem(
-                    name=c.get("name", "Unknown"),
-                    summary=c.get("summary", ""),
-                    differentiator=c.get("differentiator", ""),
-                    idea=c.get("idea"),
-                    yearOfFounding=c.get("yearOfFounding"),
-                    shortBio=c.get("shortBio"),
-                    howWeDiffer=c.get("howWeDiffer"),
+                    name=str(c.get("name") or "Unknown"),
+                    summary=summary,
+                    differentiator=differentiator,
+                    idea=str(c.get("idea") or summary),
+                    yearOfFounding=str(c.get("yearOfFounding") or "Unknown"),
+                    shortBio=str(c.get("shortBio") or summary),
+                    howWeDiffer=str(c.get("howWeDiffer") or differentiator),
                 ))
 
+        discovered_sources = [
+            r.get("url", "") for r in search_results if r.get("url")
+        ]
+        raw_model_sources = raw_output.get("groundingSources")
+        if not isinstance(raw_model_sources, list):
+            raw_model_sources = []
+        model_sources = []
+        for source in raw_model_sources:
+            url = source.get("url") if isinstance(source, dict) else source
+            if isinstance(url, str) and url.startswith(("http://", "https://")):
+                model_sources.append(url)
+        grounding_sources = list(dict.fromkeys(discovered_sources + model_sources))
+
         enrichment = CompetitorEnrichment(
+            summary=str(raw_output.get("summary") or raw_output.get("market_landscape") or "Not provided"),
             competitors=competitors,
-            market_landscape=raw_output.get("market_landscape", ""),
-            our_positioning=raw_output.get("our_positioning", ""),
-            groundingSources=[
-                r.get("url", "") for r in search_results if r.get("url")
-            ],
+            market_landscape=str(raw_output.get("market_landscape") or "Not provided"),
+            our_positioning=str(raw_output.get("our_positioning") or "Not provided"),
+            groundingSources=grounding_sources,
         )
 
         print(f"[CompetitorAgent] Completed for '{idea.title}' with {len(competitors)} competitors found.")

@@ -22,6 +22,7 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 DEFAULT_PROVIDER = os.getenv("DEFAULT_PROVIDER", "auto")  # "gemini", "openai", "auto", "mock"
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
 
 # Microservice Server Config
 SERVER_HOST = os.getenv("ENRICHMENT_HOST", "0.0.0.0")

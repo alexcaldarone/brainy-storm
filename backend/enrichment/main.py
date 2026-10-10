@@ -16,6 +16,7 @@ from .models import (
     ManualEnrichRequest,
     IdeaCreateUpdateRequest,
     TranscriptEnrichRequest,
+    IdeaIngestRequest,
 )
 from .storage import storage
 from .orchestrator import orchestrator
@@ -61,6 +62,7 @@ async def health_check():
     return {
         "status": "ok",
         "service": "enrichment",
+        "api_revision": "idea-context-v2",
         "default_provider": DEFAULT_PROVIDER,
         "models": {"gemini": GEMINI_MODEL, "openai": OPENAI_MODEL},
         "model_ping": "/models/ping?provider=all",
@@ -74,6 +76,13 @@ async def ping_models(provider: str = "all"):
         return await llm_client.ping_models(provider)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(exc).__name__}: {str(exc)[:500]}",
+        )
 
 
 @app.get("/ideas", response_model=List[Idea])
@@ -103,6 +112,8 @@ async def create_or_update_idea(payload: IdeaCreateUpdateRequest):
             existing.summary = payload.summary
         if payload.transcript is not None:
             existing.transcript = payload.transcript
+        if payload.raw_body is not None:
+            existing.raw_body = payload.raw_body
         if payload.proponents:
             existing.proponents = payload.proponents
         if payload.opponents:
@@ -117,12 +128,34 @@ async def create_or_update_idea(payload: IdeaCreateUpdateRequest):
             title=payload.title,
             summary=payload.summary or "",
             transcript=payload.transcript,
+            raw_body=payload.raw_body or payload.transcript or "",
             proponents=payload.proponents,
             opponents=payload.opponents,
             thumbnail=payload.thumbnail
         )
         saved = await storage.save_or_update_idea(new_idea)
         return saved
+
+
+@app.post("/ideas/{identifier}/ingest")
+async def ingest_idea_transcript(identifier: str, payload: IdeaIngestRequest):
+    """Filter a transcript delta into an idea raw body and optionally run all enrichments."""
+    try:
+        return await orchestrator.ingest_transcript_delta(
+            identifier=identifier,
+            title=payload.title,
+            transcript_delta=payload.transcript,
+            enrich=payload.enrich,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(exc).__name__}: {str(exc)[:500]}",
+        )
 
 
 @app.post("/ideas/{identifier}/enrich")
@@ -138,6 +171,37 @@ async def enrich_selected_idea(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(exc).__name__}: {str(exc)[:500]}",
+        )
+
+
+@app.post("/ideas/{identifier}/enrich/{service}")
+async def enrich_selected_idea_with_service(
+    identifier: str,
+    service: str,
+    payload: Optional[TranscriptEnrichRequest] = None,
+):
+    """Run one synchronous enrichment stage and persist its result."""
+    try:
+        return await orchestrator.enrich_one(
+            identifier=identifier,
+            service=service,
+            transcript_override=payload.transcript if payload else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(exc).__name__}: {str(exc)[:500]}",
+        )
 
 
 @app.post("/enrich/auto")
