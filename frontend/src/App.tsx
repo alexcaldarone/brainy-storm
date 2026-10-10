@@ -20,7 +20,6 @@ import {
   Share2,
   Sparkles,
   Square,
-  Users,
   X,
 } from 'lucide-react'
 import './App.css'
@@ -120,11 +119,6 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="session-sidebar" aria-label="Brainstorming sessions">
-        <a className="wordmark" href="#home" aria-label="Brainy Storm home">
-          <span className="brand-mark"><Sparkles size={16} strokeWidth={2.2} /></span>
-          <span>brainy storm</span>
-        </a>
-
         <button type="button" className="new-session-button" onClick={createSession} aria-label="New brainstorm">
           <Plus size={16} />
           <span>New brainstorm</span>
@@ -219,7 +213,6 @@ function App() {
               <div>
                 <div className="eyebrow"><span className="live-dot" /> LIVE BRAINSTORM <span className="eyebrow-divider">·</span> TODAY, 10:26 AM</div>
                 <h1>{activeSession}</h1>
-                <p className="board-subtitle">A place for good ideas to find each other.</p>
               </div>
               <button type="button" className="outline-button board-options"><Settings2 size={15} /><span>Board settings</span></button>
             </div>
@@ -307,11 +300,26 @@ function App() {
       <aside className={`transcript-sidebar ${transcriptOpen ? 'mobile-open' : ''}`} aria-label="Live transcript">
         <div className="transcript-header">
           <div><div className="transcript-title-row"><h2>Transcript</h2><button type="button" className="icon-button small mobile-close" onClick={() => setTranscriptOpen(false)} aria-label="Close transcript"><X size={16} /></button></div><p><span className={`transcript-live ${recording === 'recording' ? 'is-live' : ''}`} />{recording === 'recording' ? 'Live transcription' : recording === 'paused' ? 'Transcription paused' : 'Ready to record'}</p></div>
-          <button type="button" className="icon-button small" aria-label="Transcript options"><MoreHorizontal size={18} /></button>
-        </div>
-        <div className="transcript-tools">
-          <button type="button" className="transcript-filter"><Users size={14} /><span>Everyone</span><ChevronDown size={13} /></button>
-          <button type="button" className="icon-button small" aria-label="Transcript settings"><Settings2 size={15} /></button>
+          <details className="transcript-options" onBlur={event => {
+            if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false
+          }} onKeyDown={event => {
+            if (event.key === 'Escape') {
+              event.currentTarget.open = false
+              event.currentTarget.querySelector('summary')?.focus()
+            }
+          }}>
+            <summary className="icon-button small" aria-label="Transcript options"><MoreHorizontal size={18} /></summary>
+            <div className="transcript-options-menu">
+              <button type="button" className="transcript-export" onClick={event => {
+                exportTranscript()
+                const menu = event.currentTarget.closest('details')
+                if (menu) {
+                  menu.open = false
+                  menu.querySelector('summary')?.focus()
+                }
+              }}><FileText size={14} /><span>Export transcript</span></button>
+            </div>
+          </details>
         </div>
         <div className="transcript-feed" aria-live="polite">
           {error && <p role="alert">{error}</p>}
@@ -326,7 +334,7 @@ function App() {
           ))}
           {recording === 'recording' && <div className="transcript-capture"><span className="capture-avatar">···</span><span>Listening for the next thought</span><span className="capture-pulse" /></div>}
         </div>
-        <div className="transcript-footer"><button type="button" className="transcript-export" onClick={exportTranscript}><FileText size={14} /><span>Export transcript</span><ChevronDown size={13} /></button><span className="transcript-private">Only visible to participants</span></div>
+        <div className="transcript-footer"><span className="transcript-private">Only visible to participants</span></div>
       </aside>
       {transcriptOpen && <button type="button" className="mobile-scrim" onClick={() => setTranscriptOpen(false)} aria-label="Close transcript panel" />}
     </div>
