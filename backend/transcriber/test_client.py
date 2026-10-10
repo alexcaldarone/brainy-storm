@@ -135,9 +135,22 @@ async def main():
         async with websockets.connect(SERVER_URL) as ws:
             print("Connected to Transcriber server!")
 
+            # 1. Wait for server handshake/ready signal
+            try:
+                first_msg_raw = await ws.recv()
+                first_msg = json.loads(first_msg_raw)
+                if first_msg.get("type") == "error":
+                    print(f"\n❌ Server Error: {first_msg.get('message')}\n")
+                    return
+                elif first_msg.get("type") == "ready":
+                    print("⚡ Server confirmed: Ready for audio stream.")
+            except websockets.exceptions.ConnectionClosed as e:
+                print(f"\n❌ Connection closed by server (code {e.code}): {e.reason or 'Policy violation / missing API key'}")
+                return
+
             listener_task = asyncio.create_task(listen_for_transcripts(ws))
 
-            # Select stream source
+            # 2. Select stream source
             if use_mic:
                 sender_task = asyncio.create_task(run_mic_streaming(ws))
             elif wav_path:
@@ -155,9 +168,15 @@ async def main():
                 sender_task.cancel()
                 listener_task.cancel()
 
+    except websockets.exceptions.InvalidURI:
+        print(f"❌ Invalid URI: {SERVER_URL}")
+        return
+    except (ConnectionRefusedError, OSError):
+        print("❌ Could not connect to server.")
+        print("💡 Make sure the server is running: uv run uvicorn main:app --reload --port 8000")
+        return
     except Exception as e:
         print(f"❌ Connection error: {e}")
-        print("💡 Make sure the server is running: uv run uvicorn main:app --reload")
         return
 
     # Print transcript file result

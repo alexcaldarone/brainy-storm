@@ -16,7 +16,12 @@ ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(dotenv_path=LOCAL_ENV)
 load_dotenv(dotenv_path=ROOT_ENV)
 
-GRADIUM_API_KEY = os.getenv("GRADIUM_API_KEY", "").strip()
+def get_gradium_api_key() -> str:
+    # Reload in case .env was edited while the server was running
+    load_dotenv(dotenv_path=LOCAL_ENV, override=True)
+    load_dotenv(dotenv_path=ROOT_ENV, override=True)
+    return os.getenv("GRADIUM_API_KEY", "").strip()
+
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 
@@ -48,18 +53,20 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
+    api_key = get_gradium_api_key()
     return {
         "service": "transcriber",
         "status": "running",
         "websocket_endpoint": "/ws/transcribe",
-        "api_key_configured": bool(GRADIUM_API_KEY and GRADIUM_API_KEY != "your-gradium-api-key-here"),
+        "api_key_configured": bool(api_key and api_key != "your-gradium-api-key-here"),
         "transcript_path": str(TRANSCRIPT_FILE),
     }
 
 
 @app.get("/health")
 async def health_check():
-    is_key_set = bool(GRADIUM_API_KEY and GRADIUM_API_KEY != "your-gradium-api-key-here")
+    api_key = get_gradium_api_key()
+    is_key_set = bool(api_key and api_key != "your-gradium-api-key-here")
     return {
         "status": "healthy" if is_key_set else "needs_api_key",
         "api_key_configured": is_key_set,
@@ -87,8 +94,9 @@ async def clear_transcript():
 async def websocket_transcribe(ws: WebSocket):
     await ws.accept()
 
+    api_key = get_gradium_api_key()
     # Verify API key
-    if not GRADIUM_API_KEY or GRADIUM_API_KEY == "your-gradium-api-key-here":
+    if not api_key or api_key == "your-gradium-api-key-here":
         err_msg = "GRADIUM_API_KEY is missing. Please set it in backend/transcriber/.env"
         await ws.send_json({"type": "error", "message": err_msg})
         await ws.close(code=1008)
@@ -97,7 +105,7 @@ async def websocket_transcribe(ws: WebSocket):
     print("🔌 Client connected to /ws/transcribe. Initializing Gradium STT...")
 
     try:
-        client = gradium.GradiumClient(api_key=GRADIUM_API_KEY)
+        client = gradium.GradiumClient(api_key=api_key)
         
         # Connect to Gradium real-time STT WebSocket
         async with client.stt_realtime(
