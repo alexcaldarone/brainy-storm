@@ -1,32 +1,71 @@
-# React + TypeScript + Vite
+# Brainy Storm Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This is the React + TypeScript frontend for Brainy Storm, a brainstorming workspace designed to help teams capture, organize, and vote on ideas during live conversations.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The interface presents a collaborative idea board with:
 
-## React Compiler
+- a session sidebar for brainstorming spaces
+- searchable recent sessions
+- a live board for idea cards and voting
+- a recording/transcript dock for conversational context
+- saved ideas and lightweight session management
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The current UI is a polished concept prototype for the product experience and is built as a Vite app.
 
-## Expanding the Oxlint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+- React 19
+- TypeScript
+- Vite
+- Lucide React icons
+- Custom CSS styling
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+## Project Structure
+
+```text
+frontend/
+├── src/
+│   ├── App.tsx
+│   ├── App.css
+│   ├── main.tsx
+│   └── index.css
+├── public/
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+├── README.md
+└── index.html
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Getting Started
+
+From the repository root:
+
+```bash
+cd frontend
+npm install
+npm run dev -- --host 0.0.0.0
+```
+
+Then open:
+
+```text
+http://localhost:5173
+```
+
+## Available Scripts
+
+```bash
+npm run dev      # start the Vite dev server
+npm run build    # type-check and build the app for production
+npm run preview  # preview the production build locally
+npm run lint     # run the project's linter
+```
+
+## Notes
+
+- The app is currently frontend-only and uses seeded mock data for brainstorming sessions and ideas.
+- The `npm run dev` command is intended to be used while developing locally.
+- If the app is being served from another environment or a remote host, update the port/host settings as needed.
