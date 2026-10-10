@@ -1,6 +1,7 @@
 from typing import Optional
 from ..models import Idea, WorkflowEnrichment
 from ..llm_client import llm_client
+from ..config import GEMINI_FAST_MODEL
 
 
 class WorkflowAgent:
@@ -44,7 +45,8 @@ Return your response in pure JSON format matching this schema:
 
         raw_output = await llm_client.generate_json(
             prompt=prompt,
-            system_instruction=system_instruction
+            system_instruction=system_instruction,
+            model=GEMINI_FAST_MODEL,
         )
 
         steps = [str(s) for s in raw_output.get("steps", []) if s]
@@ -68,4 +70,3 @@ Return your response in pure JSON format matching this schema:
 
 
 workflow_agent = WorkflowAgent()
-

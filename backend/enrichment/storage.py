@@ -2,7 +2,8 @@ import json
 import asyncio
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from .config import IDEAS_FILE, TRANSCRIPT_FILE
+from .artifact_store import IdeaArtifactStore
+from .config import IDEA_ARTIFACTS_DIR, IDEAS_FILE, TRANSCRIPT_FILE
 from .models import Idea
 
 _storage_lock = asyncio.Lock()
@@ -11,9 +12,21 @@ _storage_lock = asyncio.Lock()
 class StorageManager:
     """Handles async-safe read/write operations to data/ideas.json and transcript.txt."""
 
-    def __init__(self, ideas_path: Path = IDEAS_FILE, transcript_path: Path = TRANSCRIPT_FILE):
+    def __init__(
+        self,
+        ideas_path: Path = IDEAS_FILE,
+        transcript_path: Path = TRANSCRIPT_FILE,
+        artifacts_path: Optional[Path] = None,
+    ):
         self.ideas_path = Path(ideas_path)
         self.transcript_path = Path(transcript_path)
+        if artifacts_path is None:
+            artifacts_path = (
+                IDEA_ARTIFACTS_DIR
+                if self.ideas_path.resolve() == Path(IDEAS_FILE).resolve()
+                else self.ideas_path.parent / "ideas"
+            )
+        self.artifacts = IdeaArtifactStore(artifacts_path)
         self._ensure_files()
 
     def _ensure_files(self):
@@ -92,6 +105,8 @@ class StorageManager:
         with open(temp_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         temp_file.replace(self.ideas_path)
+        for idea in ideas:
+            self.artifacts.write(idea)
 
     async def get_transcript(self) -> str:
         if not self.transcript_path.exists():
@@ -109,4 +124,3 @@ class StorageManager:
 
 
 storage = StorageManager()
-

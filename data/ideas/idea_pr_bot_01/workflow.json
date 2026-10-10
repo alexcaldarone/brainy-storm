@@ -1,0 +1,17 @@
+{
+  "summary": "The Autonomous Code Review & Security Remediation Bot triggers when a pull request is marked 'ready for review', filtering code diffs via Abstract Syntax Tree (AST) parsing to identify vulnerabilities and bugs. It generates targeted patches, validates them against the repository test suite inside an isolated execution sandbox, and posts verified patch proposals and contextual summaries back to the PR for mandatory human developer approval.",
+  "steps": [
+    "Step 1: Webhook Trigger & Guardrail Check - Ingests webhook events from GitHub/GitLab when a PR is marked 'Ready for Review', verifying branch permissions and token expenditure guardrails.",
+    "Step 2: AST-Filtered Diff Extraction - Parses repository changes using Abstract Syntax Tree (AST) analysis to filter out cosmetic changes and isolate logic paths and security-sensitive segments.",
+    "Step 3: Vulnerability & Bug Remediation Generation - Feeds filtered diff context and security rules into an AI remediation engine to construct code patches and explanatory rationale.",
+    "Step 4: Sandbox Provisioning & Patch Application - Spawns a secure, ephemeral microVM or container sandbox and applies the candidate patch on top of the target branch.",
+    "Step 5: Test Suite Verification - Executes the repository's native test suites (unit, integration, linting) within the sandbox to ensure zero regressions or broken tests.",
+    "Step 6: PR Feedback & Suggested Commit Delivery - Packages verified patches into suggested commits or review comments with inline explanations detailing the fix and test outcomes.",
+    "Step 7: Human Verification & Sign-off - Halts execution at the mandatory human-in-the-loop gate, requiring manual review and merge authorization with strict prohibitions against auto-merging."
+  ],
+  "mermaid_code": "flowchart TD\n    A[PR Marked 'Ready for Review'] --> B{Cost & Scope Guardrails}\n    B -->|Passed| C[AST Diff Parser & Filtering]\n    B -->|Rejected / Out of Scope| Z[Halt & Skip]\n    C --> D[AI Remediation Engine]\n    D --> E[Generate Candidate Patch]\n    E --> F[Provision Ephemeral Sandbox]\n    F --> G[Run Repository Test Suite]\n    G --> H{Tests Passed?}\n    H -->|No| I[Log Diagnostics / Abandon Patch]\n    H -->|Yes| J[Submit Suggested Commits & Explanations]\n    J --> K[Mandatory Human Review]\n    K -->|Approved| L[Engineer Merges PR]\n    K -->|Rejected| M[Discard / Revise Suggestion]",
+  "mermaidCode": null,
+  "image_prompt": "A futuristic isometric 3D concept illustration of an automated software engineering pipeline. In the center, a holographic glowing cube represents an isolated secure sandbox where lines of clean code and green checkmarks circulate. Connected via glowing fiber-optic data pipelines are a Git branch icon on one side and a sleek robotic assistant interface on the other. A digital transparent shield encapsulates the sandbox to represent security isolation. In the foreground, a sleek human developer console displays diff changes with a prominent manual approval button bathed in soft ambient neon cyan, deep violet, and emerald lighting against a dark studio background, ultra-detailed, 8k render.",
+  "image_url": null,
+  "generated_at": 1791644130.1947064
+}

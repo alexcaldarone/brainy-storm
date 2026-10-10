@@ -1,6 +1,9 @@
 import asyncio
+import hashlib
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from typing import List, Optional, Dict, Any
 
 from .config import (
@@ -17,9 +20,12 @@ from .models import (
     IdeaCreateUpdateRequest,
     TranscriptEnrichRequest,
     IdeaIngestRequest,
+    TranscriptChunkDispatchRequest,
+    ClassifiedChunksRequest,
 )
 from .storage import storage
 from .orchestrator import orchestrator
+from .job_queue import job_queue
 from .llm_client import llm_client
 
 app = FastAPI(
@@ -39,6 +45,12 @@ app.add_middleware(
 
 # Active WebSocket connections for live UI push
 active_websockets: List[WebSocket] = []
+background_queue_tasks: set[asyncio.Task] = set()
+
+
+def _track_background_task(task: asyncio.Task):
+    background_queue_tasks.add(task)
+    task.add_done_callback(background_queue_tasks.discard)
 
 
 async def broadcast_ws(event_dict: Dict[str, Any]):
@@ -62,7 +74,7 @@ async def health_check():
     return {
         "status": "ok",
         "service": "enrichment",
-        "api_revision": "idea-context-v2",
+        "api_revision": "idea-artifacts-v4",
         "default_provider": DEFAULT_PROVIDER,
         "models": {"gemini": GEMINI_MODEL, "openai": OPENAI_MODEL},
         "model_ping": "/models/ping?provider=all",
@@ -98,6 +110,40 @@ async def get_idea(identifier: str):
     return idea
 
 
+@app.get("/ideas/{identifier}/artifacts")
+async def list_idea_artifacts(identifier: str):
+    idea = await storage.get_idea(identifier)
+    if not idea:
+        raise HTTPException(status_code=404, detail=f"Idea '{identifier}' not found.")
+    folder = storage.artifacts.write(idea)
+    files = sorted(path.name for path in folder.iterdir() if path.is_file())
+    return {
+        "idea_id": idea.id,
+        "directory": str(folder.resolve()),
+        "files": [
+            {
+                "name": name,
+                "url": f"/ideas/{idea.id}/artifacts/{name}",
+            }
+            for name in files
+        ],
+    }
+
+
+@app.get("/ideas/{identifier}/artifacts/{filename}")
+async def get_idea_artifact(identifier: str, filename: str):
+    idea = await storage.get_idea(identifier)
+    if not idea:
+        raise HTTPException(status_code=404, detail=f"Idea '{identifier}' not found.")
+    if filename != Path(filename).name:
+        raise HTTPException(status_code=400, detail="Invalid artifact filename.")
+    folder = storage.artifacts.write(idea)
+    target = folder / filename
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail=f"Artifact '{filename}' not found.")
+    return FileResponse(target)
+
+
 @app.post("/ideas", response_model=Idea)
 async def create_or_update_idea(payload: IdeaCreateUpdateRequest):
     existing = None
@@ -108,6 +154,8 @@ async def create_or_update_idea(payload: IdeaCreateUpdateRequest):
 
     if existing:
         existing.title = payload.title
+        if payload.short_summary is not None:
+            existing.short_summary = payload.short_summary
         if payload.summary is not None:
             existing.summary = payload.summary
         if payload.transcript is not None:
@@ -126,6 +174,7 @@ async def create_or_update_idea(payload: IdeaCreateUpdateRequest):
         new_idea = Idea(
             id=payload.id or payload.title.lower().replace(" ", "-"),
             title=payload.title,
+            short_summary=payload.short_summary,
             summary=payload.summary or "",
             transcript=payload.transcript,
             raw_body=payload.raw_body or payload.transcript or "",
@@ -156,6 +205,139 @@ async def ingest_idea_transcript(identifier: str, payload: IdeaIngestRequest):
             status_code=500,
             detail=f"{type(exc).__name__}: {str(exc)[:500]}",
         )
+
+
+@app.post("/transcript/chunks")
+async def dispatch_transcript_chunk(payload: TranscriptChunkDispatchRequest):
+    """Accept upstream router output and enqueue one ordered job per affected idea.
+
+    The recognition model remains independent: it supplies `matches` with the
+    stable idea ID, new/existing flag, and only the relevant excerpt.
+    """
+    jobs = []
+    try:
+        for match in payload.matches:
+            jobs.append(
+                await job_queue.enqueue(
+                    chunk_id=payload.chunk_id,
+                    source_transcript=payload.transcript,
+                    match=match,
+                )
+            )
+        if payload.process_now:
+            jobs = await job_queue.process_jobs(job.job_id for job in jobs)
+        return {
+            "chunk_id": payload.chunk_id,
+            "status": "processed" if payload.process_now else "queued",
+            "jobs": [job.model_dump() for job in jobs],
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/transcript/classified-chunks")
+async def dispatch_classified_chunks(payload: ClassifiedChunksRequest):
+    """Accept the `classified-chunks.json` shape and enqueue each chunk/idea pair."""
+    queued_jobs = []
+    chunk_results = []
+    try:
+        for chunk in payload.chunks:
+            clean_chunk = chunk.chunk.strip()
+            chunk_id = chunk.chunk_id or hashlib.sha256(
+                clean_chunk.encode("utf-8")
+            ).hexdigest()[:20]
+            prepared = await asyncio.gather(*(
+                orchestrator.prepare_classified_match(
+                    idea_id=reference.id,
+                    title=reference.title,
+                    transcript_chunk=clean_chunk,
+                    short_summary=reference.short_summary,
+                )
+                for reference in chunk.ideas
+            ))
+            chunk_job_ids = []
+            ignored_ideas = []
+            for reference, match in zip(chunk.ideas, prepared):
+                if match is None:
+                    ignored_ideas.append(reference.id)
+                    continue
+                job = await job_queue.enqueue(
+                    chunk_id=chunk_id,
+                    source_transcript=clean_chunk,
+                    match=match,
+                )
+                queued_jobs.append(job)
+                chunk_job_ids.append(job.job_id)
+            chunk_results.append({
+                "chunk_id": chunk_id,
+                "idea_ids": [reference.id for reference in chunk.ideas],
+                "job_ids": chunk_job_ids,
+                "ignored_idea_ids": ignored_ideas,
+                "has_been_processed": False,
+            })
+
+        if payload.process_now and queued_jobs:
+            queued_jobs = await job_queue.process_jobs(job.job_id for job in queued_jobs)
+            completed = {job.chunk_id for job in queued_jobs if job.status in {"completed", "skipped"}}
+            for result in chunk_results:
+                result["has_been_processed"] = result["chunk_id"] in completed
+
+        return {
+            "status": "processed" if payload.process_now else "queued",
+            "chunks": chunk_results,
+            "jobs": [job.model_dump() for job in queued_jobs],
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.get("/enrichment/queue/jobs")
+async def list_enrichment_jobs(status: Optional[str] = None):
+    allowed = {"queued", "running", "completed", "failed", "skipped"}
+    if status and status not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown status '{status}'. Supported: {', '.join(sorted(allowed))}",
+        )
+    jobs = await job_queue.list(status=status)
+    return {"count": len(jobs), "jobs": [job.model_dump() for job in jobs]}
+
+
+@app.get("/enrichment/queue/jobs/{job_id}")
+async def get_enrichment_job(job_id: str):
+    job = await job_queue.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+    return job.model_dump()
+
+
+@app.post("/enrichment/queue/jobs/{job_id}/run")
+async def run_enrichment_job(job_id: str):
+    try:
+        job = await job_queue.process_one(job_id)
+        return job.model_dump()
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/enrichment/queue/drain")
+async def drain_enrichment_queue(wait: bool = True):
+    """Run queued jobs FIFO per idea and concurrently across different ideas."""
+    queued = await job_queue.list(status="queued")
+    job_ids = [job.job_id for job in queued]
+    if not job_ids:
+        return {"status": "empty", "job_ids": []}
+    if not wait:
+        task = asyncio.create_task(job_queue.process_jobs(job_ids))
+        _track_background_task(task)
+        return {"status": "dispatched", "job_ids": job_ids}
+    jobs = await job_queue.process_jobs(job_ids)
+    return {
+        "status": "completed",
+        "jobs": [job.model_dump() for job in jobs],
+    }
 
 
 @app.post("/ideas/{identifier}/enrich")

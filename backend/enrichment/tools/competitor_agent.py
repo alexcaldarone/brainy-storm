@@ -20,9 +20,12 @@ class CompetitorAgent:
         uses_gemini_grounding = provider == "gemini" or (
             provider == "auto" and bool(llm_client.gemini_key)
         )
+        # Keep an independent web-search fallback even when Gemini grounding is
+        # enabled. Some model/search combinations can return no candidates; the
+        # same prompt can then retry without the tool while retaining sources.
         search_results = (
             []
-            if provider == "mock" or uses_gemini_grounding
+            if provider == "mock"
             else await llm_client.search_web(search_query, num_results=4)
         )
 
@@ -80,7 +83,7 @@ Return your response in pure JSON format matching this schema:
         raw_output = await llm_client.generate_json(
             prompt=prompt,
             system_instruction=system_instruction,
-            enable_search=True
+            enable_search=uses_gemini_grounding
         )
 
         competitors = []

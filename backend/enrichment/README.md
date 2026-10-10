@@ -139,3 +139,129 @@ curl -s -X POST http://127.0.0.1:8001/ideas/new_idea_01/ingest \
 Use `"enrich":false` to update `raw_body` without rerunning the four enrichment
 agents. Configured provider failures return an error; they are never reported as
 successful mock research. Explicit offline demos require `DEFAULT_PROVIDER=mock`.
+
+## Queue classified transcript chunks
+
+Your upstream idea-recognition model submits one transcript chunk plus one match
+for every affected idea. New ideas default to the complete pipeline. Existing
+ideas default to refreshing only `summary` and `pros_cons`.
+
+Queue a new idea without waiting for enrichment:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8001/transcript/chunks \
+  -H 'content-type: application/json' \
+  -d '{
+    "chunk_id":"chunk-001",
+    "transcript":"Maya: We should build a solar repair kiosk. Lee: Theft could be a risk.",
+    "matches":[{
+      "idea_id":"solar-kiosk",
+      "is_new":true,
+      "title":"Solar repair kiosk",
+      "relevant_excerpt":"Maya: We should build a solar repair kiosk. Lee: Theft could be a risk.",
+      "reason":"A new product idea and its first risk"
+    }]
+  }' | python -m json.tool
+```
+
+Inspect and drain the queue synchronously:
+
+```bash
+curl -sS 'http://127.0.0.1:8001/enrichment/queue/jobs?status=queued' \
+  | python -m json.tool
+
+curl -sS -X POST 'http://127.0.0.1:8001/enrichment/queue/drain?wait=true' \
+  | python -m json.tool
+
+curl -sS http://127.0.0.1:8001/ideas/solar-kiosk \
+  | python -m json.tool
+```
+
+Queue a later update for the same idea. Reusing a `chunk_id` is safe and is
+reported as `skipped`; a new ID appends exactly one `transcript_segments` entry
+and increments `content_version`.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8001/transcript/chunks \
+  -H 'content-type: application/json' \
+  -d '{
+    "chunk_id":"chunk-002",
+    "transcript":"Alex: The kiosk needs battery storage for evening repairs.",
+    "matches":[{
+      "idea_id":"solar-kiosk",
+      "is_new":false,
+      "relevant_excerpt":"Alex: The kiosk needs battery storage for evening repairs."
+    }]
+  }' | python -m json.tool
+
+curl -sS -X POST 'http://127.0.0.1:8001/enrichment/queue/drain?wait=false' \
+  | python -m json.tool
+```
+
+`wait=false` starts background processing. Use the returned job IDs with
+`GET /enrichment/queue/jobs/{job_id}`. Jobs for different ideas run in
+parallel; jobs for the same idea run FIFO under a per-idea lock. To enqueue and
+wait in one request, add `"process_now":true` to the chunk payload.
+
+Interactive endpoint schemas are available at
+`http://127.0.0.1:8001/docs`. Run all offline endpoint and pipeline tests with:
+
+```bash
+python -m unittest discover -s backend/enrichment -p "test_*.py"
+```
+
+## Process `classified-chunks.json`
+
+The classifier file is accepted directly. The service checks each fixed idea
+ID against storage, so the upstream classifier does not need to send `is_new`.
+The one-line `short-summary` is accepted but intentionally not used as
+enrichment context.
+
+```bash
+curl -sS -X POST http://127.0.0.1:8001/transcript/classified-chunks \
+  -H 'content-type: application/json' \
+  --data-binary @backend/enrichment/classified-chunks.json \
+  | python -m json.tool
+
+curl -sS -X POST 'http://127.0.0.1:8001/enrichment/queue/drain?wait=true' \
+  | python -m json.tool
+```
+
+Add `"process_now": true` beside `"chunks"` to enqueue and wait in one call.
+For a new ID, the service generates summary, categorized pros/cons, workflow,
+system architecture, and grounded competitors. For an existing ID, the router
+always refreshes the summary and selects only affected downstream sections.
+
+## Per-idea saved artifacts
+
+The aggregate database remains `data/ideas.json`. Every save also writes the
+complete per-idea record to `data/ideas/<idea-id>.json` and materializes an
+organized folder at `data/ideas/<idea-id>/` containing, when available:
+
+```text
+idea.json
+manifest.json
+raw-body.txt
+transcript-segments.json
+summary.md
+pros-cons.json
+pros-cons.md
+assumptions-open-questions.md
+competitors.json
+competitors.md
+workflow.json
+workflow.mmd
+workflow.svg
+system-architecture.json
+system-architecture.mmd
+system-architecture.svg
+```
+
+List or download them through the API:
+
+```bash
+curl -sS http://127.0.0.1:8001/ideas/idea_pr_bot_01/artifacts \
+  | python -m json.tool
+
+curl -sS http://127.0.0.1:8001/ideas/idea_pr_bot_01/artifacts/pros-cons.md
+```

@@ -1,0 +1,71 @@
+# Competitors Discovered via Google Search
+
+*Live Web Grounded*
+
+The automated code review and vulnerability remediation space is populated by legacy static analyzers, specialized AI PR review bots, and automated vulnerability fixers. Most competitors either provide read-only PR comments that add cognitive noise or suggest speculative fixes without deterministic verification. Our solution differentiates itself by incorporating a verified, closed-loop sandbox that executes repository tests prior to suggesting ready-to-commit patches with strict human-in-the-loop controls.
+
+## CodeRabbit
+
+**Founded:** 2023
+
+### Their Idea
+Automated AI code reviewer providing conversational feedback and line-by-line suggestions on pull requests.
+
+### Short Bio
+CodeRabbit is an AI code review platform that provides automated summaries, code walkthroughs, and inline suggestions on GitHub and GitLab pull requests.
+
+### How We Differ
+CodeRabbit operates primarily as an analytical review and commenting agent without isolating and executing suggested fixes against the repository's test suite inside a dedicated sandbox before proposing commits.
+
+## Snyk (Snyk DeepCode AI / Snyk Fix)
+
+**Founded:** 2015
+
+### Their Idea
+Automated security remediation engine detecting vulnerabilities and offering one-click PR fixes.
+
+### Short Bio
+Snyk is a cybersecurity company that empowers developers to find and fix vulnerabilities in code, dependencies, containers, and infrastructure as code.
+
+### How We Differ
+Snyk focuses primarily on CVE security patches and lint-style SAST rules, whereas our bot handles general engineering boilerplate, logic issues, and vulnerability patching verified via an active execution sandbox running the test suite.
+
+## Qodo (formerly CodiumAI / PR-Agent)
+
+**Founded:** 2022
+
+### Their Idea
+Autonomous PR agent that analyzes pull requests, drafts descriptions, spots logic errors, and generates test suites.
+
+### Short Bio
+Qodo develops code-integrity solutions and open-source agents like PR-Agent to automate code analysis, test generation, and review management.
+
+### How We Differ
+Qodo generates unit tests and review suggestions via static LLM prompting, whereas our bot uses AST-filtered triggers and runs the repository's native test suite in an execution sandbox to validate patch correctness before presenting suggested commits.
+
+## SonarQube (SonarCloud)
+
+**Founded:** 2008
+
+### Their Idea
+Static analysis engine enforcing strict quality gates across codebases during continuous integration builds.
+
+### Short Bio
+SonarSource provides SonarQube and SonarCloud, leading tools for static code analysis, security linting, and technical debt monitoring.
+
+### How We Differ
+SonarQube operates strictly via deterministic pattern-matching and requires developers to write the remediation manually, whereas our bot proactively writes verified fix commits with explanatory context.
+
+## Market landscape
+
+The market is divided into traditional static analysis tools (SonarQube, ESLint) that flag issues without fixing them, security-first platforms (Snyk, Dependabot) that automatically open pull requests for known CVEs, and modern generative AI PR review agents (CodeRabbit, Qodo) that provide contextual code critiques. A critical gap remains in combining code reviews with automated patch verification, as current AI review bots often flood reviewers with speculative comments rather than validated, compilable fixes.
+
+## Our positioning
+
+We position ourselves as a verified remediation agent rather than just another noisy PR reviewer. By executing patches inside isolated sandboxes to confirm green test builds before code presentation, filtering PR triggers via AST diffs to keep CI and token costs predictable, and enforcing strict human-only GPG commit sign-offs, we provide enterprise teams with guaranteed correctness, zero auto-merge risk, and measurable reductions in review latency.
+
+## Sources
+- https://coderabbit.ai
+- https://snyk.io
+- https://www.qodo.ai
+- https://www.sonarsource.com

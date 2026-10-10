@@ -8,6 +8,7 @@ PROJECT_ROOT = BASE_DIR.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 IDEAS_FILE = DATA_DIR / "ideas.json"
 TRANSCRIPT_FILE = DATA_DIR / "transcript.txt"
+IDEA_ARTIFACTS_DIR = DATA_DIR / "ideas"
 
 # Keep local development predictable: `cp .env.example .env` works whether
 # uvicorn is launched from the repository root or this service directory.
@@ -21,6 +22,10 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 # LLM Configurations
 DEFAULT_PROVIDER = os.getenv("DEFAULT_PROVIDER", "auto")  # "gemini", "openai", "auto", "mock"
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_FAST_MODEL = os.getenv("GEMINI_FAST_MODEL", "gemini-flash-lite-latest")
+GROUNDED_SEARCH_TIMEOUT_SECONDS = float(
+    os.getenv("GROUNDED_SEARCH_TIMEOUT_SECONDS", "20")
+)
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
 

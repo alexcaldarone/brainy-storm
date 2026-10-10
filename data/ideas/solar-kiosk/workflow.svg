@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="720" viewBox="0 0 1000 720">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<style>.title{font:700 22px Arial;fill:#0f172a}.box{fill:#fff;stroke:#6366f1;stroke-width:2}.label{font:600 14px Arial;fill:#0f172a}.small{font:12px Arial;fill:#475569}.edge{stroke:#64748b;stroke-width:2;fill:none}</style>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker></defs>
+<text x="32" y="36" class="title">Workflow</text>
+<rect x="90" y="70" width="820" height="70" rx="12" class="box"/>
+<text x="115" y="98" class="label">Step 1: Energy Harvesting &amp; Management - Rooftop solar canopy harvests solar energy,</text>
+<text x="115" y="118" class="label">mediated by an MPPT charge controller and stored in high-capacity onboard battery banks to</text>
+<line x1="500" y1="140" x2="500" y2="175" class="edge" marker-end="url(#arrow)"/>
+<rect x="90" y="175" width="820" height="70" rx="12" class="box"/>
+<text x="115" y="203" class="label">Step 2: User Check-in &amp; Intake - Commuter approaches kiosk at transit terminal and selects</text>
+<text x="115" y="223" class="label">service category (mobile tech, quick solder, tire inflation/patch, micro-mobility tune-up)</text>
+<line x1="500" y1="245" x2="500" y2="280" class="edge" marker-end="url(#arrow)"/>
+<rect x="90" y="280" width="820" height="70" rx="12" class="box"/>
+<text x="115" y="308" class="label">Step 3: Rapid Diagnostics - Device or item is placed in a multi-sensor diagnostic bay, which</text>
+<text x="115" y="328" class="label">scans for battery health, continuity, hardware faults, or tire pressure.</text>
+<line x1="500" y1="350" x2="500" y2="385" class="edge" marker-end="url(#arrow)"/>
+<rect x="90" y="385" width="820" height="70" rx="12" class="box"/>
+<text x="115" y="413" class="label">Step 4: Automated Quote &amp; Approval - Kiosk generates instantaneous price/repair-time</text>
+<text x="115" y="433" class="label">estimate; commuter authorizes transaction via contactless mobile payment (Apple Pay, RFID</text>
+<line x1="500" y1="455" x2="500" y2="490" class="edge" marker-end="url(#arrow)"/>
+<rect x="90" y="490" width="820" height="70" rx="12" class="box"/>
+<text x="115" y="518" class="label">Step 5: Robotic/Assisted Repair Execution - Internal automated robotic arm or assisted</text>
+<text x="115" y="538" class="label">workbench tooling executes targeted repair (battery swap, screen patch, inflation, plug</text>
+<line x1="500" y1="560" x2="500" y2="595" class="edge" marker-end="url(#arrow)"/>
+<rect x="90" y="595" width="820" height="70" rx="12" class="box"/>
+<text x="115" y="623" class="label">Step 6: Quality Verification &amp; Pickup - Optical and electrical verification runs; commuter</text>
+<text x="115" y="643" class="label">receives an authentication PIN or QR code to retrieve the repaired item from the retrieval</text>
+</svg>

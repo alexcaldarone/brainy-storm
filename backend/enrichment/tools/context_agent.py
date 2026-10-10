@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 from ..llm_client import llm_client
 from ..models import Idea
+from ..config import GEMINI_FAST_MODEL
 
 
 class IdeaContextAgent:
@@ -39,6 +40,7 @@ Return pure JSON:
                 "You filter new multi-person transcript chunks for one identified idea. "
                 "Always return valid JSON."
             ),
+            model=GEMINI_FAST_MODEL,
         )
         body = str(raw.get("relevant_body", "")).strip()
         return {

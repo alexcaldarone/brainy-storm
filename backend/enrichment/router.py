@@ -1,6 +1,7 @@
 from typing import Optional
 from .models import Idea, ToolDecision
 from .llm_client import llm_client
+from .config import GEMINI_FAST_MODEL
 
 
 class DecisionRouter:
@@ -63,7 +64,8 @@ Return your response in pure JSON format matching this schema:
 
         raw_output = await llm_client.generate_json(
             prompt=prompt,
-            system_instruction=system_instruction
+            system_instruction=system_instruction,
+            model=GEMINI_FAST_MODEL,
         )
 
         decision = ToolDecision(
@@ -98,4 +100,3 @@ Return your response in pure JSON format matching this schema:
 
 
 decision_router = DecisionRouter()
-

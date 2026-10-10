@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 
 from ..llm_client import llm_client
 from ..models import Idea
+from ..config import GEMINI_FAST_MODEL
 
 
 class SummaryAgent:
@@ -33,6 +34,7 @@ Return pure JSON:
                 "You synthesize noisy, multi-speaker product transcripts into precise idea briefs. "
                 "Always return valid JSON."
             ),
+            model=GEMINI_FAST_MODEL,
         )
 
         summary = str(raw.get("summary", "")).strip()

@@ -1,5 +1,5 @@
 from typing import Optional, Tuple, List
-from ..models import Idea, ProsConsEnrichment
+from ..models import Idea, ProConItem, ProsConsEnrichment
 from ..llm_client import llm_client
 
 
@@ -25,18 +25,31 @@ TRANSCRIPT / DISCUSSION CONTEXT:
 {context or 'No additional transcript context provided.'}
 
 TASK:
-1. Identify 2 to 4 key PROS (strengths, advantages, high-impact value).
-2. Identify 2 to 4 key CONS (drawbacks, implementation hurdles, friction).
-3. Identify major RISKS (technical, market, or operational).
-4. Identify OPEN QUESTIONS that the brainstorming team should resolve.
-5. Extract or refine PROPONENTS: specific stakeholders, team members, or arguments strongly in favor.
-6. Extract or refine OPPONENTS: specific stakeholders, team members, or arguments critical/opposed.
+1. Extract every material PRO and CON actually voiced in the transcript.
+2. Categorize each as Technical, Business & Market, User Experience,
+   Operations, Compliance & Security, or Financial.
+3. Rate each point High, Medium, or Low and sort highest impact/risk first.
+4. Include a short speaker-attributed source quote or close paraphrase.
+5. Identify assumptions and open questions that still require validation.
+6. Extract or refine proponents and opponents.
 
 Return your response in pure JSON format matching this schema:
 {{
-  "pros": ["Pro 1...", "Pro 2..."],
-  "cons": ["Con 1...", "Con 2..."],
+  "summary": "Overall synthesis of the debate and any conditional consensus",
+  "pros": [{{
+    "point": "Specific benefit",
+    "category": "Operations",
+    "severity_or_impact": "High",
+    "source_context": "Sarah said ..."
+  }}],
+  "cons": [{{
+    "point": "Specific objection or risk",
+    "category": "Compliance & Security",
+    "severity_or_impact": "High",
+    "source_context": "Elena warned ..."
+  }}],
   "key_risks": ["Risk 1...", "Risk 2..."],
+  "assumptions": ["Assumption that needs validation"],
   "open_questions": ["Question 1...", "Question 2..."],
   "proponents": ["Proponent argument or persona 1", "Proponent argument 2"],
   "opponents": ["Opponent argument or critic 1", "Opponent argument 2"]
@@ -50,10 +63,42 @@ Return your response in pure JSON format matching this schema:
             system_instruction=system_instruction
         )
 
+        def parse_items(items):
+            parsed = []
+            for item in items if isinstance(items, list) else []:
+                if isinstance(item, str):
+                    parsed.append(ProConItem(point=item))
+                elif isinstance(item, dict) and item.get("point"):
+                    severity = str(
+                        item.get("severity_or_impact")
+                        or item.get("severityOrImpact")
+                        or "Medium"
+                    ).title()
+                    if severity not in {"High", "Medium", "Low"}:
+                        severity = "Medium"
+                    parsed.append(ProConItem(
+                        point=str(item["point"]),
+                        category=str(item.get("category") or "General"),
+                        severity_or_impact=severity,
+                        source_context=str(
+                            item.get("source_context")
+                            or item.get("sourceContext")
+                            or ""
+                        ),
+                    ))
+            priority = {"High": 3, "Medium": 2, "Low": 1}
+            return sorted(
+                parsed,
+                key=lambda value: priority.get(value.severity_or_impact, 0),
+                reverse=True,
+            )
+
         enrichment = ProsConsEnrichment(
-            pros=[str(p) for p in raw_output.get("pros", []) if p],
-            cons=[str(c) for c in raw_output.get("cons", []) if c],
+            summary=str(raw_output.get("summary") or "").strip() or None,
+            pros=parse_items(raw_output.get("pros", [])),
+            cons=parse_items(raw_output.get("cons", [])),
             key_risks=[str(r) for r in raw_output.get("key_risks", []) if r],
+            assumptions=[str(a) for a in raw_output.get("assumptions", []) if a],
             open_questions=[str(q) for q in raw_output.get("open_questions", []) if q]
         )
 
@@ -66,4 +111,3 @@ Return your response in pure JSON format matching this schema:
 
 
 pros_cons_agent = ProsConsAgent()
-

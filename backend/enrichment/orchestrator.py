@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import time
 from typing import Optional, List, Callable, Dict, Any
-from .models import Idea, ToolDecision
+from .models import Idea, RoutedIdeaMatch, ToolDecision
 from .storage import storage
 from .router import decision_router
 from .tools.competitor_agent import competitor_agent
@@ -10,6 +10,7 @@ from .tools.workflow_agent import workflow_agent
 from .tools.pros_cons_agent import pros_cons_agent
 from .tools.summary_agent import summary_agent
 from .tools.context_agent import context_agent
+from .tools.architecture_agent import architecture_agent
 
 
 class AgenticOrchestrator:
@@ -123,14 +124,14 @@ class AgenticOrchestrator:
                 return {
                     "idea_id": idea.id,
                     "status": "enriching",
-                    "dispatched_tools": ["summary", "pros_cons", "workflow", "competitors"],
+                    "dispatched_tools": ["summary", "pros_cons", "workflow", "architecture", "competitors"],
                     "mode": "manual",
                 }
             return await self.enrich_idea_from_transcript(idea.id, context)
-        elif service_clean in ["competitors", "workflow", "pros_cons"]:
+        elif service_clean in ["competitors", "workflow", "architecture", "pros_cons"]:
             tools_to_run = [service_clean]
         else:
-            raise ValueError(f"Unknown service: '{service}'. Supported: competitors, workflow, pros_cons, all")
+            raise ValueError(f"Unknown service: '{service}'. Supported: competitors, workflow, architecture, pros_cons, all")
 
         full_context = context or idea.transcript or await storage.get_transcript()
 
@@ -186,28 +187,35 @@ class AgenticOrchestrator:
         await storage.save_or_update_idea(idea)
         await self._emit_event("tools_started", {
             "idea_id": idea.id,
-            "tools": ["summary", "pros_cons", "workflow", "competitors"],
+            "tools": ["summary", "pros_cons", "workflow", "architecture", "competitors"],
         })
 
+        parallel_tasks: List[asyncio.Task] = []
         try:
+            # These transcript-first stages do not depend on the new summary,
+            # so start them while summary generation is in flight.
+            pros_task = asyncio.create_task(pros_cons_agent.run(idea, context))
+            architecture_task = asyncio.create_task(architecture_agent.run(idea, context))
+            parallel_tasks.extend([pros_task, architecture_task])
+
             summary, key_takeaway = await summary_agent.run(idea, context)
             idea.summary = summary
             idea.metadata["key_takeaway"] = key_takeaway
-            idea.active_tools = ["pros_cons", "workflow", "competitors"]
+            idea.active_tools = ["pros_cons", "workflow", "architecture", "competitors"]
 
-            pros_task = pros_cons_agent.run(idea, context)
-            # These two intentionally use the concise summary, not the noisy
-            # transcript, to produce a focused design and search query.
-            workflow_task = workflow_agent.run(idea, summary)
-            competitor_task = competitor_agent.run(idea, summary)
+            # Workflow and competitor research use the concise summary and can
+            # start immediately once that dependency is ready.
+            workflow_task = asyncio.create_task(workflow_agent.run(idea, summary))
+            competitor_task = asyncio.create_task(competitor_agent.run(idea, summary))
+            parallel_tasks.extend([workflow_task, competitor_task])
             results = await asyncio.gather(
-                pros_task, workflow_task, competitor_task, return_exceptions=True
+                pros_task, workflow_task, architecture_task, competitor_task, return_exceptions=True
             )
 
             execution = {"summary": {"status": "success"}}
             failures = []
 
-            pros_result, workflow_result, competitor_result = results
+            pros_result, workflow_result, architecture_result, competitor_result = results
             if isinstance(pros_result, BaseException):
                 failures.append("pros_cons")
                 execution["pros_cons"] = {"status": "failed", "error": str(pros_result)}
@@ -221,6 +229,13 @@ class AgenticOrchestrator:
             else:
                 idea.workflow = workflow_result
                 execution["workflow"] = {"status": "success"}
+
+            if isinstance(architecture_result, BaseException):
+                failures.append("architecture")
+                execution["architecture"] = {"status": "failed", "error": str(architecture_result)}
+            else:
+                idea.systemGraph = architecture_result
+                execution["architecture"] = {"status": "success"}
 
             if isinstance(competitor_result, BaseException):
                 failures.append("competitors")
@@ -245,6 +260,11 @@ class AgenticOrchestrator:
                 "idea": idea.model_dump(),
             }
         except Exception:
+            for task in parallel_tasks:
+                if not task.done():
+                    task.cancel()
+            if parallel_tasks:
+                await asyncio.gather(*parallel_tasks, return_exceptions=True)
             idea.status = "error"
             idea.active_tools = []
             idea.updated_at = time.time()
@@ -259,7 +279,7 @@ class AgenticOrchestrator:
     ) -> Dict[str, Any]:
         """Synchronously run and persist one enrichment stage."""
         service_clean = service.lower().strip().replace("-", "_")
-        supported = {"summary", "pros_cons", "workflow", "competitors"}
+        supported = {"summary", "pros_cons", "workflow", "architecture", "competitors"}
         if service_clean not in supported:
             raise ValueError(
                 f"Unknown service '{service}'. Supported: {', '.join(sorted(supported))}"
@@ -280,7 +300,7 @@ class AgenticOrchestrator:
         elif not idea.raw_body:
             idea.raw_body = context
 
-        if service_clean in {"workflow", "competitors"} and not idea.summary.strip():
+        if service_clean in {"workflow", "architecture", "competitors"} and not idea.summary.strip():
             raise ValueError(
                 f"Idea '{identifier}' has no summary. Run the summary endpoint first."
             )
@@ -309,6 +329,10 @@ class AgenticOrchestrator:
                 enrichment = await workflow_agent.run(idea, idea.summary)
                 idea.workflow = enrichment
                 result = enrichment.model_dump()
+            elif service_clean == "architecture":
+                enrichment = await architecture_agent.run(idea, context)
+                idea.systemGraph = enrichment
+                result = enrichment.model_dump()
             else:
                 enrichment = await competitor_agent.run(idea, idea.summary)
                 idea.competitors = enrichment
@@ -317,7 +341,7 @@ class AgenticOrchestrator:
             idea.active_tools = []
             idea.status = (
                 "enriched"
-                if idea.summary and idea.pros_cons and idea.workflow and idea.competitors
+                if idea.summary and idea.pros_cons and idea.workflow and idea.systemGraph and idea.competitors
                 else "idle"
             )
             idea.updated_at = time.time()
@@ -413,6 +437,44 @@ class AgenticOrchestrator:
         })
         return enrichment
 
+    async def prepare_classified_match(
+        self,
+        idea_id: str,
+        title: str,
+        transcript_chunk: str,
+        short_summary: Optional[str] = None,
+    ) -> Optional[RoutedIdeaMatch]:
+        """Turn one classified chunk/idea pair into a minimal enrichment job."""
+        idea = await storage.get_idea(idea_id)
+        is_new = idea is None
+        candidate = idea or Idea(id=idea_id, title=title)
+        extraction = await context_agent.run(candidate, transcript_chunk)
+        excerpt = extraction["relevant_body"].strip()
+        if not extraction["is_relevant"] or not excerpt:
+            return None
+
+        tools = None
+        if not is_new:
+            decision = await decision_router.evaluate_context_delta(idea, excerpt)
+            selected = ["summary"]
+            if decision.call_pros_cons:
+                selected.append("pros_cons")
+            if decision.call_workflow:
+                selected.extend(["workflow", "architecture"])
+            if decision.call_competitors:
+                selected.append("competitors")
+            tools = list(dict.fromkeys(selected))
+
+        return RoutedIdeaMatch(
+            idea_id=idea_id,
+            is_new=is_new,
+            title=title,
+            short_summary=short_summary,
+            relevant_excerpt=excerpt,
+            reason=extraction["reason"],
+            tools=tools,
+        )
+
     async def _run_tool_pipeline(self, idea_id: str, tools: List[str], context: Optional[str]):
         """Executes selected tools concurrently and persists updates atomically."""
         idea = await storage.get_idea(idea_id)
@@ -432,6 +494,8 @@ class AgenticOrchestrator:
                 tasks.append(self._run_competitor_subagent(idea_id, context))
             elif t == "workflow":
                 tasks.append(self._run_workflow_subagent(idea_id, context))
+            elif t == "architecture":
+                tasks.append(self._run_architecture_subagent(idea_id, context))
             elif t == "pros_cons":
                 tasks.append(self._run_pros_cons_subagent(idea_id, context))
 
@@ -483,6 +547,25 @@ class AgenticOrchestrator:
                 await self._emit_event("tool_completed", {"idea_id": idea_id, "tool": "workflow", "result": result.model_dump()})
         except Exception as e:
             print(f"[Orchestrator] Error running workflow agent: {e}")
+
+    async def _run_architecture_subagent(self, idea_id: str, context: Optional[str]):
+        try:
+            idea = await storage.get_idea(idea_id)
+            if not idea:
+                return
+            result = await architecture_agent.run(idea, context)
+            current_idea = await storage.get_idea(idea_id)
+            if current_idea:
+                current_idea.systemGraph = result
+                current_idea.updated_at = time.time()
+                await storage.save_or_update_idea(current_idea)
+                await self._emit_event("tool_completed", {
+                    "idea_id": idea_id,
+                    "tool": "architecture",
+                    "result": result.model_dump(),
+                })
+        except Exception as e:
+            print(f"[Orchestrator] Error running architecture agent: {e}")
 
     async def _run_pros_cons_subagent(self, idea_id: str, context: Optional[str]):
         try:
