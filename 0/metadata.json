@@ -1,0 +1,54 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4K1TZTHM8GPHXJ0FX4XG25H",
+  "session_id": "01a12616-5fd3-7e82-9d3b-3c482a7eda30",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T14:00:30.198275Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "frontend/src/App.tsx"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6-astra",
+  "turn_id": "e77eb700e1cd",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 45688,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 1012864,
+    "output_tokens": 6127,
+    "api_call_count": 26
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T14:00:30.183656Z",
+    "agent_lines": 10,
+    "agent_removed": 14,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 10,
+    "total_lines_changed": 24,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 104,
+      "user_lines_removed": 101,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".vscode/settings.json": 3,
+        "y/settings.json": 101
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 101
+      }
+    }
+  ]
+}
