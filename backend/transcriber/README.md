@@ -1,116 +1,23 @@
-# Transcriber Service
+# Microphone transcriber
 
-Real-time audio transcription service using **Gradium Speech-to-Text WebSocket API** for hackathon brainstorming sessions.
+Streams the default microphone to Gradium and writes plain text to `data/transcript.txt` in the project root.
 
-Continuously streams audio to Gradium and sends live captions to the frontend. Received text is buffered per recording and appended to `data/transcript.txt` every five seconds by default.
+## Run
 
----
-
-## 🚀 Quick Start
-
-### 1. Add your Gradium API Key
-Open `.env` (or copy from `.env.example`) and paste your API key:
-```ini
-GRADIUM_API_KEY=your_actual_gradium_api_key_here
-TRANSCRIPT_BATCH_SECONDS=5
-```
-
-`TRANSCRIPT_BATCH_SECONDS` accepts any positive, finite number of seconds, including fractions. It defaults to `5` when absent. Invalid values fail startup. Restart the service after changing it.
-
-### 2. Start the Server
-From this directory (`backend/transcriber`):
-```bash
-uv run uvicorn main:app --reload --port 8000
-```
-The server will start at `http://localhost:8000`. Run one server worker: file locking and recording bookkeeping are shared within a single process.
-
-## Transcript batches
-
-Each session starts a monotonic timer when it becomes ready. At each deadline, the service appends one line containing the text received since its previous batch. Empty intervals produce no writes. Captions remain immediate.
-
-```text
-[14:36:15] We could build a service that groups the ideas discussed.
-[14:36:20] Then another service could identify related suggestions.
-```
-
-The timestamp is local batch-formation time, not an audio timestamp. Recognition delay can move words into a later batch, and sentences may span batches. Whitespace is normalized; recognized words and punctuation are preserved without rewriting or deduplication.
-
-On stop or disconnect, the service allows up to five seconds for Gradium's remaining results, then saves the final partial batch. File updates continue during this drain. Provider failures or timeouts preserve text already received and report an error to a connected client. A disk failure terminates the affected recording without automatically retrying an append that might be partial. Pending text is held in memory and cannot be recovered after a process crash.
-
-`GET /transcript` returns only persisted text and is coordinated with appends. Services reading the file directly must process only newline-terminated lines and retain an incomplete trailing line for the next read; appends are not cross-process transactions. Concurrent recordings have separate buffers and append complete lines through one shared writer. Existing file contents are retained.
-
----
-
-## Manual demo client
-
-While the frontend is being developed, use `demo_client.py` to stream audio to the running service. Automated tests are separate in `tests/`.
-
-### Option A: Test with your Laptop Microphone
-```bash
-uv run python demo_client.py --mic
-```
-Speak into your microphone, then press `Ctrl+C`. The client sends stop once and waits up to ten seconds for server closure before printing the saved transcript. With the default interval, speak for roughly twelve seconds: expect immediate captions, file entries around five and ten seconds, and a final partial batch after stopping.
-
-### Option B: Test with a WAV Audio File
-```bash
-uv run python demo_client.py --file path/to/sample.wav
-```
-
-### Option C: Synthetic Audio Ping
-```bash
-uv run python demo_client.py
-```
-
-This sine-wave test checks connectivity; use speech to verify transcription batches.
-
-## Automated tests
-
-From this directory:
+From `backend/transcriber`, copy `.env.example` to `.env` and set your `GRADIUM_API_KEY`. Then run:
 
 ```bash
-uv run python -m unittest discover -s tests -v
+uv run python main.py
 ```
 
-Tests use simulated Gradium streams, client WebSockets, controllable timing, and temporary files. They require no API key, microphone, or network, and do not modify the working transcript.
+Run this in an interactive macOS/Linux terminal and allow microphone access if macOS asks. The input must support 24 kHz, mono, 16-bit PCM.
 
----
+Once the microphone and Gradium connection are ready, the script clears the transcript file. Every five seconds it appends the newly received text as one line and prints it to the terminal. Silent intervals add nothing. The file contains the whole current recording, without timestamps.
 
-## 🔌 Frontend Integration Guide
+- Press **Space** to pause the microphone and save buffered text immediately. Audio waiting to be sent is discarded; results for audio already sent may still be saved while paused.
+- Press **Space** again to resume. The existing transcript is preserved, and the next write happens five seconds after resuming.
+- Press **Ctrl+C** while recording or paused to save any remaining received text and exit. Words Gradium has not returned yet are not included.
 
-When the frontend team builds the record button:
+Space works immediately, without Enter, while this terminal is focused. Pausing keeps the Gradium connection open. Normal terminal input and echo are restored on exit, including after an error.
 
-1. **Connect WebSocket**:
-   ```javascript
-   const ws = new WebSocket("ws://localhost:8000/ws/transcribe");
-   ```
-
-2. **Wait for ready**:
-   ```javascript
-   ws.onmessage = (event) => {
-     const data = JSON.parse(event.data);
-     if (data.type === "transcript") {
-       console.log("Live transcript:", data.text);
-     }
-   };
-   ```
-
-3. **Stream Audio**:
-   Capture audio via `AudioContext` / `AudioWorklet` (24kHz, 16-bit PCM mono) and send raw binary chunks:
-   ```javascript
-   ws.send(pcmChunk); // Int16Array.buffer
-   ```
-
-4. **Stop Session**:
-   ```javascript
-   ws.send(JSON.stringify({ action: "stop" }));
-   ```
-
-   Keep receiving until the server closes the WebSocket. A normal close (`1000`) confirms final persistence; an error event and close (`1011`) indicate failure. The existing `{ action: "flush" }` requests a Gradium flush but does not bypass the file batching timer.
-
----
-
-## 📡 REST Endpoints
-
-- `GET /health` – Check server status and if API key is configured.
-- `GET /transcript` – View contents of `data/transcript.txt`.
-- `POST /transcript/clear` – Reset `data/transcript.txt` for a new brainstorming session. Returns HTTP `409` while any recording is initializing, active, or saving its final results. Stop all recordings and wait for completion before clearing.
+Change `WRITE_INTERVAL_SECONDS = 5` at the top of `main.py` to adjust the interval. Run only one instance against the output file. Other components read the transcript file directly; there is no HTTP server or separate demo client.
