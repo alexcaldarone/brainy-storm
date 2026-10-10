@@ -1,0 +1,32 @@
+I am building a brainstorming assistant to help with making brainstorming sessions more efficient and give people better ideas when doing hackathons. In particular i am working on the transcriber service. The goal of this service is to process audio and write it periodically to the data/transcript.txt file. it has to do this via the gradium api. we do not have the frontend yet, but when we will have the frontend we will have a button that people can press to start the recording of audio and then we will have the gradium api to trascript this with their speech to text websocket module. give me a plan on how to implement this in the backend/transcriber/ in python. each folder here should be its own python module with its own uv module and dependencies. make a plan on how to implement this.
+
+---
+
+do i all of these files? like this somehow seems like a bit of a too complex setup? can the gradium_client and server not be in the same file? or even everythin in one file? isn't this a bit too overengineered for something i am building in a hackathon?
+
+---
+
+ok implemet this together with the test file and set up the file where i then just need to paste my gradium api key
+
+---
+
+do this implementation in a separate branch
+
+---
+
+% uv run python test_client.py --mic
+Connecting to ws://localhost:8000/ws/transcribe...
+Connected to Transcriber server!
+❌ Server error: GRADIUM_API_KEY is missing. Please set it in backend/transcriber/.env
+🎙️  Recording from microphone (24kHz 16-bit mono)...
+👉 Speak into your mic! Press Ctrl+C to stop.
+❌ Connection error: received 1008 (policy violation); then sent 1008 (policy violation)
+💡 Make sure the server is running: uv run uvicorn main:app --reload
+(base) alexcaldarone@Alexs-MacBook-Pro transcriber % uv run python test_client.py --mic
+Connecting to ws://localhost:8000/ws/transcribe...
+Connected to Transcriber server!
+❌ Server error: GRADIUM_API_KEY is missing. Please set it in backend/transcriber/.env
+🎙️  Recording from microphone (24kHz 16-bit mono)...
+👉 Speak into your mic! Press Ctrl+C to stop.
+❌ Connection error: received 1008 (policy violation); then sent 1008 (policy violation)
+💡 Make sure the server is running: uv run uvicorn main:app --reload

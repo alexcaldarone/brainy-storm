@@ -1,0 +1,47 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4JYR500VYE2EKK19GCYTYKA",
+  "session_id": "d357b429-a8df-4387-914a-752c2c7a2de1",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T13:06:31.234803Z",
+  "branch": "feature/transcriber",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    "backend/transcriber/main.py",
+    "backend/transcriber/test_client.py"
+  ],
+  "agent": "Antigravity",
+  "model": "",
+  "turn_id": "ec8929a31459",
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T13:06:31.228884Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 959,
+    "human_modified": 294,
+    "human_removed": 0,
+    "total_committed": 959,
+    "total_lines_changed": 1262,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 1,
+      "user_lines_removed": 1,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "backend/transcriber/.env.example": 1
+      },
+      "user_removed_per_file": {
+        "backend/transcriber/.env.example": 1
+      }
+    }
+  ]
+}
