@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import time
 from typing import Optional, List, Callable, Dict, Any
 from .models import Idea, ToolDecision
@@ -8,6 +9,7 @@ from .tools.competitor_agent import competitor_agent
 from .tools.workflow_agent import workflow_agent
 from .tools.pros_cons_agent import pros_cons_agent
 from .tools.summary_agent import summary_agent
+from .tools.context_agent import context_agent
 
 
 class AgenticOrchestrator:
@@ -166,15 +168,18 @@ class AgenticOrchestrator:
         if not idea:
             raise ValueError(f"Idea not found: '{identifier}'")
 
-        transcript = (transcript_override or idea.transcript or "").strip()
-        if not transcript:
+        context = (transcript_override or idea.raw_body or idea.transcript or "").strip()
+        if not context:
             raise ValueError(
-                f"Idea '{identifier}' has no transcript. Add `transcript` to its ideas.json record "
-                "or provide it in the request body."
+                f"Idea '{identifier}' has no raw body or transcript. Ingest transcript context first."
             )
 
         if transcript_override:
-            idea.transcript = transcript
+            idea.transcript = context
+            idea.raw_body = context
+        elif not idea.raw_body:
+            # Backfill legacy idea records that only had `transcript`.
+            idea.raw_body = context
         idea.status = "enriching"
         idea.active_tools = ["summary"]
         idea.updated_at = time.time()
@@ -185,12 +190,12 @@ class AgenticOrchestrator:
         })
 
         try:
-            summary, key_takeaway = await summary_agent.run(idea, transcript)
+            summary, key_takeaway = await summary_agent.run(idea, context)
             idea.summary = summary
             idea.metadata["key_takeaway"] = key_takeaway
             idea.active_tools = ["pros_cons", "workflow", "competitors"]
 
-            pros_task = pros_cons_agent.run(idea, transcript)
+            pros_task = pros_cons_agent.run(idea, context)
             # These two intentionally use the concise summary, not the noisy
             # transcript, to produce a focused design and search query.
             workflow_task = workflow_agent.run(idea, summary)
@@ -245,6 +250,168 @@ class AgenticOrchestrator:
             idea.updated_at = time.time()
             await storage.save_or_update_idea(idea)
             raise
+
+    async def enrich_one(
+        self,
+        identifier: str,
+        service: str,
+        transcript_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Synchronously run and persist one enrichment stage."""
+        service_clean = service.lower().strip().replace("-", "_")
+        supported = {"summary", "pros_cons", "workflow", "competitors"}
+        if service_clean not in supported:
+            raise ValueError(
+                f"Unknown service '{service}'. Supported: {', '.join(sorted(supported))}"
+            )
+
+        idea = await storage.get_idea(identifier)
+        if not idea:
+            raise ValueError(f"Idea not found: '{identifier}'")
+
+        context = (transcript_override or idea.raw_body or idea.transcript or "").strip()
+        if not context:
+            raise ValueError(
+                f"Idea '{identifier}' has no raw body or transcript. Ingest transcript context first."
+            )
+        if transcript_override:
+            idea.transcript = context
+            idea.raw_body = context
+        elif not idea.raw_body:
+            idea.raw_body = context
+
+        if service_clean in {"workflow", "competitors"} and not idea.summary.strip():
+            raise ValueError(
+                f"Idea '{identifier}' has no summary. Run the summary endpoint first."
+            )
+
+        idea.status = "enriching"
+        idea.active_tools = [service_clean]
+        idea.updated_at = time.time()
+        await storage.save_or_update_idea(idea)
+
+        try:
+            if service_clean == "summary":
+                summary, key_takeaway = await summary_agent.run(idea, context)
+                idea.summary = summary
+                idea.metadata["key_takeaway"] = key_takeaway
+                result: Any = {
+                    "summary": summary,
+                    "key_takeaway": key_takeaway,
+                }
+            elif service_clean == "pros_cons":
+                enrichment, proponents, opponents = await pros_cons_agent.run(idea, context)
+                idea.pros_cons = enrichment
+                idea.proponents = proponents
+                idea.opponents = opponents
+                result = enrichment.model_dump()
+            elif service_clean == "workflow":
+                enrichment = await workflow_agent.run(idea, idea.summary)
+                idea.workflow = enrichment
+                result = enrichment.model_dump()
+            else:
+                enrichment = await competitor_agent.run(idea, idea.summary)
+                idea.competitors = enrichment
+                result = enrichment.model_dump()
+
+            idea.active_tools = []
+            idea.status = (
+                "enriched"
+                if idea.summary and idea.pros_cons and idea.workflow and idea.competitors
+                else "idle"
+            )
+            idea.updated_at = time.time()
+            idea.metadata["last_enrichment_service"] = service_clean
+            await storage.save_or_update_idea(idea)
+            await self._emit_event("tool_completed", {
+                "idea_id": idea.id,
+                "tool": service_clean,
+                "result": result,
+            })
+            return {
+                "idea_id": idea.id,
+                "service": service_clean,
+                "status": "success",
+                "result": result,
+            }
+        except Exception:
+            idea.status = "error"
+            idea.active_tools = []
+            idea.updated_at = time.time()
+            await storage.save_or_update_idea(idea)
+            raise
+
+    async def ingest_transcript_delta(
+        self,
+        identifier: str,
+        transcript_delta: str,
+        title: Optional[str] = None,
+        enrich: bool = True,
+    ) -> Dict[str, Any]:
+        """Filter a new transcript chunk into an ID-based idea and optionally re-enrich it."""
+        clean_delta = transcript_delta.strip()
+        if not clean_delta:
+            raise ValueError("Transcript delta cannot be empty.")
+
+        idea = await storage.get_idea(identifier)
+        is_new = idea is None
+        if is_new:
+            if not title or not title.strip():
+                raise ValueError("A title is required when ingesting a new idea ID.")
+            idea = Idea(id=identifier, title=title.strip())
+        elif title and title.strip():
+            idea.title = title.strip()
+
+        delta_hash = hashlib.sha256(clean_delta.encode("utf-8")).hexdigest()
+        seen_hashes = list(idea.metadata.get("ingested_transcript_hashes", []))
+        if delta_hash in seen_hashes:
+            return {
+                "idea_id": idea.id,
+                "status": "duplicate",
+                "message": "This transcript delta was already ingested.",
+            }
+
+        extraction = await context_agent.run(idea, clean_delta)
+        idea.transcript = "\n".join(filter(None, [idea.transcript, clean_delta]))
+        seen_hashes.append(delta_hash)
+        idea.metadata["ingested_transcript_hashes"] = seen_hashes[-100:]
+        idea.metadata["last_context_extraction"] = {
+            "is_relevant": extraction["is_relevant"],
+            "reason": extraction["reason"],
+        }
+
+        relevant_body = extraction["relevant_body"].strip()
+        if extraction["is_relevant"] and relevant_body:
+            if relevant_body not in idea.raw_body:
+                idea.raw_body = "\n\n".join(filter(None, [idea.raw_body, relevant_body]))
+        idea.updated_at = time.time()
+        await storage.save_or_update_idea(idea)
+
+        if not extraction["is_relevant"] or not relevant_body:
+            return {
+                "idea_id": idea.id,
+                "status": "ignored",
+                "is_new": is_new,
+                "extraction": extraction,
+                "raw_body_chars": len(idea.raw_body),
+            }
+
+        if not enrich:
+            return {
+                "idea_id": idea.id,
+                "status": "ingested",
+                "is_new": is_new,
+                "extraction": extraction,
+                "raw_body_chars": len(idea.raw_body),
+            }
+
+        enrichment = await self.enrich_idea_from_transcript(idea.id)
+        enrichment.update({
+            "is_new": is_new,
+            "extraction": extraction,
+            "raw_body_chars": len(idea.raw_body),
+        })
+        return enrichment
 
     async def _run_tool_pipeline(self, idea_id: str, tools: List[str], context: Optional[str]):
         """Executes selected tools concurrently and persists updates atomically."""

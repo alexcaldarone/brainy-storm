@@ -5,6 +5,7 @@
       "title": "my-beautiful-idea",
       "summary": "my idea talks about",
       "transcript": "my idea talks about",
+      "raw_body": "my idea talks about",
       "proponents": [],
       "opponents": [],
       "thumbnail": "path/to/image",
@@ -23,6 +24,7 @@
       "title": "Voice-First Agentic Brainstorming Canvas",
       "summary": "An interactive canvas that transcribes speech, clusters thoughts into distinct ideas, and autonomously enriches them with competitor research, visual workflows, and debate pros/cons.",
       "transcript": null,
+      "raw_body": "",
       "proponents": [
         "Marko (arguing for frictionless voice input)",
         "Voice-first interface enables zero-friction ideation",
@@ -117,59 +119,30 @@
     {
       "id": "idea_pr_bot_01",
       "title": "Autonomous Code Review & Security Remediation Bot",
-      "summary": "Designed for development teams experiencing slow pull request merge turnaround times, the Autonomous Code Review & Security Remediation Bot identifies vulnerabilities and performance bottlenecks directly within GitHub and GitLab. Unlike traditional static linters, the bot executes an isolated sandbox to run repository unit tests, verifies code fixes, and submits patch proposals with explanatory commentary. To control compute costs and uphold code security, it operates on filtered diff chunks only when PRs are marked ready for review, requiring human cryptographic sign-off instead of auto-merging.",
+      "summary": "Targeted at development teams experiencing slow pull request turnarounds, this proposal introduces an autonomous review and remediation bot for GitHub and GitLab. Rather than providing static warnings, the tool isolates relevant code diffs, executes repository test suites within an ephemeral sandbox, and submits verified fix commits for security flaws and performance bottlenecks. The bot operates with human-in-the-loop constraints, triggering only on review-ready PRs to deliver test-validated suggestions without auto-merging.",
       "transcript": "[09:02 AM] Marcus (Product Lead): \"Hey team, sorry I'm two minutes late, Zoom crashed on me. Can everyone hear me okay? Alex, you're on mute.\"\n[09:03 AM] Alex (Frontend Lead): \"Yeah, loud and clear now. Who's taking notes today?\"\n[09:03 AM] Marcus (Product Lead): \"I've got the transcription bot running. So let's dive in. As you know, our pull request review turnaround is terrible right now—median time to merge is 4.5 days. Engineers are context-switching constantly. My proposal for Q3 is to build an Autonomous Multi-Agent Code Review & Security Remediation Bot directly into GitHub and GitLab.\"\n[09:05 AM] Sarah (Principal Architect): \"Hold up, Marcus. What does it actually do that Dependabot or SonarQube doesn't already do? Because developers hate noisy bots that spam 40 trivial linter comments on every PR.\"\n[09:06 AM] Marcus (Product Lead): \"Great question. Here's the difference: instead of just flagging static lint warnings, this agent actually spins up an isolated sandbox, runs the repo's unit tests, isolates the CVE or performance bottleneck, and submits a verified fix commit with an explanation. It doesn't just complain; it writes the patch and proves the tests pass before human review.\"\n[09:08 AM] Sarah (Principal Architect): \"Okay, that actually sounds huge if it works. Proponents like me would say this could cut median PR review latency by 60%, especially for routine dependency bumps, OWASP Top 10 sanitization, and database query index suggestions. It frees up senior staff from reading boilerplate code.\"\n[09:10 AM] Dave (DevOps / Infrastructure): \"Whoa whoa, let me jump in here. Who is paying for the LLM token bills when a developer pushes 15 commits to a draft PR? A full repository AST parse plus running sandboxed Docker tests on every push could explode our AWS build runner costs by 300%. Plus, cold starts for ephemeral containers can add 5 minutes to CI.\"\n[09:12 AM] Elena (CISO / Security): \"I have a much bigger concern than AWS costs: security and intellectual property. If this agent is analyzing proprietary source code, are we shipping our entire codebase out to third-party model APIs? What if the bot hallucinates a subtle backdoored regex or an unvetted npm package in a fix PR? If an engineer auto-merges an AI patch that causes an outage, who is liable under our SOC2 audit?\"\n[09:14 AM] Alex (Frontend Lead): \"To Elena's point, developers won't trust it unless the UX is crystal clear. If the bot opens a draft PR, it needs to show an interactive diff, benchmark metrics, and a safety score. But on the plus side, for our junior engineers, having an agent explain WHY a SQL query has an N+1 problem right in GitHub comments is like having a staff engineer pairing with them 24/7.\"\n[09:16 AM] Marcus (Product Lead): \"What if we address Dave and Elena's points with strict guardrails? First, we only trigger on PR ready-for-review, not on every draft commit. Second, Elena, the bot NEVER auto-merges; it only suggests commits that require a human sign-off with cryptographic GPG signing. Third, we run static semantic diff filtering first so we only send relevant AST chunks to the model, which cuts token costs by 80%.\"\n[09:18 AM] Dave (DevOps / Infrastructure): \"If you filter by diff chunk and cache test container snapshots, that solves my cost concern. But what about competitors? Isn't Snyk or GitHub Copilot Workspace doing this? How do we differentiate?\"\n[09:20 AM] Sarah (Principal Architect): \"Copilot Workspace is focused on issue-to-code generation, not closed-loop security verification with execution sandboxes. Tools like Snyk only detect vulnerabilities and provide generic regex patches that often fail local compilation. Our key differentiator is closed-loop sandbox execution: we run the actual test suite before proposing the diff.\"\n[09:22 AM] Elena (CISO / Security): \"If we also keep an append-only audit trail in our internal vault so compliance can verify every suggested fix was human-approved, I can conditionally sign off on this prototype.\"\n[09:23 AM] Marcus (Product Lead): \"Awesome. So summary: we are prototyping an Autonomous Code Review & Closed-Loop Security Remediation Bot with sandbox test verification, diff-based token gating, and human-in-the-loop signing.\"",
+      "raw_body": "[09:02 AM] Marcus (Product Lead): \"Hey team, sorry I'm two minutes late, Zoom crashed on me. Can everyone hear me okay? Alex, you're on mute.\"\n[09:03 AM] Alex (Frontend Lead): \"Yeah, loud and clear now. Who's taking notes today?\"\n[09:03 AM] Marcus (Product Lead): \"I've got the transcription bot running. So let's dive in. As you know, our pull request review turnaround is terrible right now—median time to merge is 4.5 days. Engineers are context-switching constantly. My proposal for Q3 is to build an Autonomous Multi-Agent Code Review & Security Remediation Bot directly into GitHub and GitLab.\"\n[09:05 AM] Sarah (Principal Architect): \"Hold up, Marcus. What does it actually do that Dependabot or SonarQube doesn't already do? Because developers hate noisy bots that spam 40 trivial linter comments on every PR.\"\n[09:06 AM] Marcus (Product Lead): \"Great question. Here's the difference: instead of just flagging static lint warnings, this agent actually spins up an isolated sandbox, runs the repo's unit tests, isolates the CVE or performance bottleneck, and submits a verified fix commit with an explanation. It doesn't just complain; it writes the patch and proves the tests pass before human review.\"\n[09:08 AM] Sarah (Principal Architect): \"Okay, that actually sounds huge if it works. Proponents like me would say this could cut median PR review latency by 60%, especially for routine dependency bumps, OWASP Top 10 sanitization, and database query index suggestions. It frees up senior staff from reading boilerplate code.\"\n[09:10 AM] Dave (DevOps / Infrastructure): \"Whoa whoa, let me jump in here. Who is paying for the LLM token bills when a developer pushes 15 commits to a draft PR? A full repository AST parse plus running sandboxed Docker tests on every push could explode our AWS build runner costs by 300%. Plus, cold starts for ephemeral containers can add 5 minutes to CI.\"\n[09:12 AM] Elena (CISO / Security): \"I have a much bigger concern than AWS costs: security and intellectual property. If this agent is analyzing proprietary source code, are we shipping our entire codebase out to third-party model APIs? What if the bot hallucinates a subtle backdoored regex or an unvetted npm package in a fix PR? If an engineer auto-merges an AI patch that causes an outage, who is liable under our SOC2 audit?\"\n[09:14 AM] Alex (Frontend Lead): \"To Elena's point, developers won't trust it unless the UX is crystal clear. If the bot opens a draft PR, it needs to show an interactive diff, benchmark metrics, and a safety score. But on the plus side, for our junior engineers, having an agent explain WHY a SQL query has an N+1 problem right in GitHub comments is like having a staff engineer pairing with them 24/7.\"\n[09:16 AM] Marcus (Product Lead): \"What if we address Dave and Elena's points with strict guardrails? First, we only trigger on PR ready-for-review, not on every draft commit. Second, Elena, the bot NEVER auto-merges; it only suggests commits that require a human sign-off with cryptographic GPG signing. Third, we run static semantic diff filtering first so we only send relevant AST chunks to the model, which cuts token costs by 80%.\"\n[09:18 AM] Dave (DevOps / Infrastructure): \"If you filter by diff chunk and cache test container snapshots, that solves my cost concern. But what about competitors? Isn't Snyk or GitHub Copilot Workspace doing this? How do we differentiate?\"\n[09:20 AM] Sarah (Principal Architect): \"Copilot Workspace is focused on issue-to-code generation, not closed-loop security verification with execution sandboxes. Tools like Snyk only detect vulnerabilities and provide generic regex patches that often fail local compilation. Our key differentiator is closed-loop sandbox execution: we run the actual test suite before proposing the diff.\"\n[09:22 AM] Elena (CISO / Security): \"If we also keep an append-only audit trail in our internal vault so compliance can verify every suggested fix was human-approved, I can conditionally sign off on this prototype.\"\n[09:23 AM] Marcus (Product Lead): \"Awesome. So summary: we are prototyping an Autonomous Code Review & Closed-Loop Security Remediation Bot with sandbox test verification, diff-based token gating, and human-in-the-loop signing.\"",
       "proponents": [
         "Marcus (Product Lead)",
         "Sarah (Principal Architect)",
         "Alex (Frontend Lead)",
         "Marcus (Product Lead): Championing the initiative to slash PR turnaround times and context switching by offloading routine fixes to autonomous agents.",
         "Sarah (Principal Architect): Advocates for the 60% review latency reduction and closed-loop sandbox execution, freeing senior engineers from boilerplate code.",
-        "Alex (Frontend Lead): Emphasizes developer enablement, junior staff pairing, and educational interactive diffs with safety metrics."
+        "Alex (Frontend Lead): Emphasizes developer enablement, junior staff pairing, and educational interactive diffs with safety metrics.",
+        "Marcus (Product Lead): Emphasizes solving the 4.5-day PR merge latency bottleneck and reducing developer context-switching via automated, verified fix commits.",
+        "Sarah (Principal Architect): Champions the closed-loop sandbox differentiator over static linters to free senior engineers from routine boilerplate code.",
+        "Alex (Frontend Lead): Advocates for developer mentorship value, interactive diff UX, and automated explanations of architectural flaws."
       ],
       "opponents": [
         "Dave (DevOps / Infrastructure)",
         "Elena (CISO / Security)",
         "Dave (DevOps / Infrastructure): Critical of CI runner costs, Docker cold-start latencies, and token spend spikes on high-frequency PR updates.",
-        "Elena (CISO / Security): Skeptical regarding IP exposure via external LLM APIs, supply-chain vulnerabilities from hallucinated packages, and audit liability under SOC2."
+        "Elena (CISO / Security): Skeptical regarding IP exposure via external LLM APIs, supply-chain vulnerabilities from hallucinated packages, and audit liability under SOC2.",
+        "Dave (DevOps / Infrastructure): Concerned with 300% build runner cost spikes, Docker cold-start latencies, and high token consumption on frequent PR updates.",
+        "Elena (CISO / Security): Skeptical regarding proprietary IP exposure to external APIs, hallucinated package supply-chain attacks, and legal liability under SOC2 audits."
       ],
       "thumbnail": null,
-      "competitors": {
-        "summary": null,
-        "competitors": [
-          {
-            "name": "Miro / Mural",
-            "summary": "Collaborative digital whiteboards with AI clustering and templates.",
-            "differentiator": "Focuses on static post-it canvas rather than real-time voice-driven agentic tool calling.",
-            "idea": null,
-            "yearOfFounding": null,
-            "shortBio": null,
-            "howWeDiffer": null
-          },
-          {
-            "name": "Otter.ai / Fireflies",
-            "summary": "Meeting transcription and summary bots.",
-            "differentiator": "Only records transcripts and summaries, does not synthesize ideas or spawn autonomous subagents.",
-            "idea": null,
-            "yearOfFounding": null,
-            "shortBio": null,
-            "howWeDiffer": null
-          },
-          {
-            "name": "Whimsical AI",
-            "summary": "AI mind mapping and flowcharts generated from text prompts.",
-            "differentiator": "Requires manual prompt typing rather than continuous conversational transcription.",
-            "idea": null,
-            "yearOfFounding": null,
-            "shortBio": null,
-            "howWeDiffer": null
-          }
-        ],
-        "market_landscape": "The market is split between passive meeting recorders and static whiteboards. An active agentic brainstorming companion creates a distinct new category.",
-        "our_positioning": "We position ourselves as an active AI co-founder during brainstorming: listening continuously, identifying distinct ideas, and autonomously dispatching research and workflow agents.",
-        "groundingSources": [],
-        "generated_at": 1791639087.1528003
-      },
+      "competitors": null,
       "workflow": {
         "summary": "An event-driven automated pipeline that monitors GitHub and GitLab for Pull Requests flagged 'Ready for Review'. Upon trigger, it isolates code diffs, scans for security flaws and performance regressions, synthesizes prospective fixes, validates them in an ephemeral execution sandbox against unit test suites, and submits verified remediation patches requiring cryptographic developer sign-off.",
         "steps": [
@@ -189,34 +162,34 @@
       "pros_cons": {
         "summary": null,
         "pros": [
-          "Closed-loop sandbox verification: Proposes patches that have already been validated against the repo's unit test suite, reducing broken automated suggestions.",
-          "Significant reduction in PR turnaround time: Cuts down median review latency (currently 4.5 days) by automating routine dependency updates, OWASP sanitization, and boilerplate reviews.",
-          "Educational value for junior developers: Provides in-line explanations of issues (e.g., N+1 query patterns), effectively functioning as continuous mentorship without overburdening senior engineers."
+          "Closed-loop sandbox verification: Unlike static linting or generic vulnerability scanners, fixes are pre-validated against the repository's existing test suite before surfacing to developers.",
+          "Significant PR latency reduction: Automates routine fixes (e.g., OWASP sanitization, dependency updates, N+1 query optimization), projected to cut review turnaround times by up to 60%.",
+          "Continuous developer enablement: Acts as an interactive pairing partner for junior engineers by providing context-rich explanations and benchmark metrics alongside diffs."
         ],
         "cons": [
-          "High CI/CD overhead and latency: Spinning up isolated sandboxes and running test suites adds cold-start delays and significant infrastructure complexity.",
-          "Compute and LLM token costs: Processing large diffs and running ephemeral containers across multiple PRs risks exploding infrastructure expenses if trigger conditions fail.",
-          "Potential developer friction: Risk of review noise or alert fatigue if patch suggestions require extensive manual verification or fail edge-case logic."
+          "High CI/CD compute footprint: Spinning up isolated Docker containers and test runners per review adds infrastructure overhead and can increase cold-start latency.",
+          "Operational LLM token expenses: Analyzing complex abstract syntax trees (ASTs) and processing multiple code diffs can drive substantial third-party API costs without aggressive chunk filtering.",
+          "Complex integration & maintenance: Maintaining ephemeral sandbox environments across heterogeneous codebases, language ecosystems, and test runners requires significant ongoing engineering effort."
         ],
         "key_risks": [
-          "Security and IP leakage: Exposure of proprietary codebase to third-party LLM providers, violating data sovereignty or client agreements.",
-          "AI hallucinations causing vulnerabilities: Injection of subtle backdoors, insecure regex, or hallucinated third-party dependencies that pass existing tests but fail production safety.",
-          "Compliance and liability exposure: Compromising SOC2 or regulatory audits if unvetted automated patches cause production outages or introduce unmonitored code paths."
+          "Supply chain and security hallucinations: The model could inject vulnerable dependencies, hallucinated packages, or subtly flawed logic that passes existing unit tests.",
+          "Proprietary IP leakage and compliance liability: Exposing private repository code to third-party LLM endpoints may trigger compliance issues and SOC2 audit exposure if human sign-off fails.",
+          "Market redundancy: Incumbent developer tooling vendors (e.g., GitHub Copilot, Snyk) could rapidly close the feature gap by native integration of sandbox-verified remediation."
         ],
         "open_questions": [
-          "Which LLM deployment model will be used (self-hosted vs. enterprise cloud API) to comply with data privacy and IP restrictions?",
-          "How will the system handle integration and end-to-end tests that require external dependencies, databases, or mock services beyond basic unit tests?",
-          "What is the defense against market competition from established developer toolings like GitHub Copilot Workspace, Snyk, and SonarQube?"
+          "Which LLM deployment model will be utilized to guarantee proprietary code does not leak to external provider training sets (e.g., self-hosted vs. zero-data-retention enterprise APIs)?",
+          "How will the sandbox handle flaky, long-running, or resource-heavy integration and end-to-end tests without bottlenecking developer velocity?",
+          "What specific threshold or safety score determines whether an AI-suggested patch is safe enough to present to a reviewer?"
         ],
-        "generated_at": 1791639049.407971
+        "generated_at": 1791639909.7762632
       },
       "systemGraph": null,
-      "status": "enriched",
+      "status": "idle",
       "active_tools": [],
       "created_at": 1791638130.511,
-      "updated_at": 1791639087.1528003,
+      "updated_at": 1791642282.0258186,
       "metadata": {
-        "key_takeaway": "The team agreed to prototype the bot with closed-loop sandbox verification, contingent on guardrails such as diff-chunk token optimization, mandatory human sign-off, and an append-only audit trail to satisfy SOC2 compliance."
+        "key_takeaway": "The team agreed to prototype the sandbox-verified remediation bot, with cost controls via diff-filtering and conditional approval from Security contingent on human sign-offs and an internal audit trail."
       }
     }
   ]
