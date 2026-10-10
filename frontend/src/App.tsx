@@ -17,11 +17,12 @@ import {
   Plus,
   Search,
   Share2,
+  Sparkles,
   Square,
   X,
 } from 'lucide-react'
-import './App.css'
 import repositoryIdeas from '../../data/ideas.json'
+import './App.css'
 import { AbstractSymbol, BrandShape, RecordingShape } from './BrandShape'
 import { EditableIdea } from './EditableIdea'
 import { mergeGeneratedIdeas, readWorkspace, workspaceKey } from './ideaWorkspace'
@@ -55,6 +56,7 @@ function App() {
   }))
   const [expanded, setExpanded] = useState<string[]>(['Hackathon'])
   const [ideasError, setIdeasError] = useState('')
+  const [showActivityNote, setShowActivityNote] = useState(true)
   const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
   const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
   const ideas = sessionIdeas[activeSession] || []
@@ -212,7 +214,7 @@ function App() {
         <section className={`board-scroll ${!currentIdea && layout === 'horizontal' ? 'horizontal-board' : ''}`}>
           <div className="board-content">
             {ideasError && <InfoBanner key={ideasError} message={ideasError} />}
-            <InfoBanner message="Ideas are grouped as your team explores the topic." />
+            {showActivityNote && <div className="activity-note"><Sparkles size={14} /><span>Ideas are grouped as your team explores the topic.</span><button type="button" aria-label="Dismiss note" onClick={() => setShowActivityNote(false)}><X size={14} /></button></div>}
             {currentIdea ? <article className="idea-page">
               <div className="idea-page-toolbar"><button type="button" className="text-button" onClick={() => setSelectedIdea(null)}>← Back to {activeSession}</button>{collaboratorActions}</div>
               <EditableIdea key={currentIdea.id} idea={currentIdea} storageError={storageError} onChange={fields => setIdeas(current => current.map(idea => idea.id === currentIdea.id ? { ...idea, ...fields, locallyEdited: true } : idea))} />
