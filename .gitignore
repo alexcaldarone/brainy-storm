@@ -3,7 +3,7 @@
 .env.*
 !.env.example
 *.env
-
+.*/*
 # Live pub/sub topics (tracked samples are named *.example.<ext>)
 pubsub/*
 !pubsub/*.example.*
