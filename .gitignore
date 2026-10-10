@@ -7,3 +7,6 @@ __pycache__
 .agents/
 .codex/
 .entire/
+AGENTS.md
+data/ideas.json
+data/transcript.txt
