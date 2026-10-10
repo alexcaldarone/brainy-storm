@@ -97,3 +97,49 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline-color: var(
 @media (prefers-reduced-motion: reduce) {
   .is-recording .recording-lobes ellipse { animation: none; transform: scaleY(0.7); }
 }
+
+/* People and idea symbols carry the expressive brand colors. */
+.avatar-one { color: #fff; background: var(--brand-blue); }
+.avatar-two { color: #171717; background: var(--brand-aqua); }
+.avatar-three { color: #171717; background: var(--brand-orange); }
+.profile-avatar, .avatar-self { color: #171717; background: var(--brand-pink); }
+.member-more { color: #171717; background: var(--brand-yellow); }
+.abstract-symbol { display: inline-block; width: 19px; height: 19px; flex-shrink: 0; color: var(--brand-blue); }
+.idea-nav-item .abstract-symbol { width: 15px; height: 15px; }
+.idea-nav-item:nth-child(3n + 2) .abstract-symbol { color: #a83cf4; }
+.idea-nav-item:nth-child(3n) .abstract-symbol { color: #c84b28; }
+.idea-page-symbol { width: 54px; height: 54px; color: var(--brand-blue); }
+.empty-board-icon, .add-idea-icon { background: transparent; border: 0; border-radius: 0; }
+.empty-board-icon .abstract-symbol { width: 48px; height: 48px; }
+.add-idea-icon .abstract-symbol { width: 34px; height: 34px; }
+.recording-visual svg { width: clamp(120px, 23vw, 360px); max-width: 100%; height: 54px; flex: 1; }
+.recording-visual span { flex-shrink: 0; }
+.is-recording .recording-lobes ellipse { animation-name: brand-listen-variable; animation-timing-function: ease-in-out; }
+.is-recording .recording-lobes ellipse:nth-child(4n) { fill: var(--brand-blue); }
+.is-recording .recording-lobes ellipse:nth-child(5n) { fill: var(--brand-pink); }
+@keyframes brand-listen-variable {
+  0% { transform: translateY(2px) scale(0.9, 0.3); }
+  19% { transform: translateY(var(--sway)) scale(1.08, 0.84); }
+  43% { transform: translateY(-2px) scale(0.92, 0.48); }
+  71% { transform: translateY(0) scale(1.02, 0.96); }
+  100% { transform: translateY(var(--sway)) scale(0.95, 0.57); }
+}
+.idea-editor-title, .idea-editor-body { width: 100%; min-width: 0; }
+.editable-block { display: block; width: 100%; min-height: 1.5em; padding: 4px 0; resize: none; overflow: hidden; border: 0; border-radius: 3px; color: #171717; background: transparent; }
+.editable-block:hover, .editable-tag:hover { background: #fafafa; }
+.editable-block:focus-visible, .editable-tag:focus-visible { outline: 2px solid #e5e5e5; outline-offset: 5px; }
+.editable-title { font-family: 'Recia', Georgia, serif; font-weight: 500; font-size: 32px; letter-spacing: -0.03em; line-height: 1.35; }
+.editable-body { min-height: 150px; font-size: 16px; line-height: 1.8; color: #525252; }
+.editable-tag { width: 180px; max-width: 100%; padding: 6px 8px; border: 0; font-size: 11px; }
+.editor-save-status { color: #737373; font-size: 11px; }
+.editor-save-status.save-error { color: #a33318; }
+@media (max-width: 1160px) { .recording-visual span { display: none; } }
+@media (max-width: 640px) {
+  .recording-visual svg { width: 100%; min-width: 30px; height: 42px; }
+  .recording-visual { min-width: 30px; }
+  .editable-title { font-size: 24px; }
+  .editable-body { font-size: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-recording .recording-lobes ellipse { animation: none; transform: scaleY(0.7); }
+}
