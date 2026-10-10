@@ -125,6 +125,7 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="session-sidebar" aria-label="Brainstorming sessions">
+        <div className="wordmark">brainy storm</div>
         <button type="button" className="new-session-button" onClick={createSession} aria-label="New brainstorm">
           <Plus size={16} />
           <span>New brainstorm</span>

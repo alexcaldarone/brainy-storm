@@ -20,6 +20,15 @@
   border-right: 1px solid var(--border);
 }
 
+.wordmark {
+  margin: 0 10px 20px;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+
 .new-session-button {
   display: flex;
   align-items: center;
@@ -282,6 +291,7 @@
 @media (max-width: 640px) {
   .app-shell { --header-height: 56px; grid-template-columns: 58px minmax(0, 1fr); }
   .session-sidebar { align-items: center; padding: 13px 6px 9px; }
+  .wordmark { margin: 0 0 16px; font-size: 13px; text-align: left; }
   .new-session-button > span, .session-search, .nav-section-heading, .nav-link > span, .session-group-title, .session-name, .active-dot, .profile-copy, .profile-row > svg { display: none; }
   .new-session-button { justify-content: center; width: 36px; padding: 0; }
   .nav-link, .session-item { justify-content: center; width: 36px; height: 36px; padding: 0; }
