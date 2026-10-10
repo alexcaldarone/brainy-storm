@@ -85,3 +85,57 @@ persists `summary`, `pros_cons`, `workflow`, `competitors`, and status back to
 ```bash
 python -m unittest backend.enrichment.test_pipeline
 ```
+
+## Test each agent separately
+
+For the included `idea_pr_bot_01` example, run these in order while Uvicorn is
+running. Each command returns its result immediately and saves it to
+`data/ideas.json`.
+
+```bash
+# 1. Transcript -> summary
+curl -s -X POST http://127.0.0.1:8001/ideas/idea_pr_bot_01/enrich/summary \
+  -H 'content-type: application/json' -d '{}' | python -m json.tool
+
+# 2. Transcript -> pros, cons, risks, and open questions
+curl -s -X POST http://127.0.0.1:8001/ideas/idea_pr_bot_01/enrich/pros-cons \
+  -H 'content-type: application/json' -d '{}' | python -m json.tool
+
+# 3. Summary -> workflow steps, Mermaid diagram, and image prompt
+curl -s -X POST http://127.0.0.1:8001/ideas/idea_pr_bot_01/enrich/workflow \
+  -H 'content-type: application/json' -d '{}' | python -m json.tool
+
+# 4. Summary -> online competitor research
+curl -s -X POST http://127.0.0.1:8001/ideas/idea_pr_bot_01/enrich/competitors \
+  -H 'content-type: application/json' -d '{}' | python -m json.tool
+```
+
+## Add or update transcript context by idea ID
+
+`raw_body` is the canonical context for all enrichments. The ingest endpoint
+filters a new transcript chunk for the selected ID, appends only relevant
+speaker-attributed material to `raw_body`, deduplicates repeated chunks, and
+runs the complete enrichment pipeline by default.
+
+Create a new idea from its first transcript chunk:
+
+```bash
+curl -s -X POST http://127.0.0.1:8001/ideas/new_idea_01/ingest \
+  -H 'content-type: application/json' \
+  -d '{"title":"New idea title","transcript":"Maya: Here is the idea... Alex: Here is a risk...","enrich":true}' \
+  | python -m json.tool
+```
+
+Later, append a mixed transcript delta to the same idea. The title is no longer
+required because the ID already exists:
+
+```bash
+curl -s -X POST http://127.0.0.1:8001/ideas/new_idea_01/ingest \
+  -H 'content-type: application/json' \
+  -d '{"transcript":"Maya: Unrelated greeting. Alex: For new_idea_01, we should add an audit log.","enrich":true}' \
+  | python -m json.tool
+```
+
+Use `"enrich":false` to update `raw_body` without rerunning the four enrichment
+agents. Configured provider failures return an error; they are never reported as
+successful mock research. Explicit offline demos require `DEFAULT_PROVIDER=mock`.

@@ -11,6 +11,7 @@ from .config import (
     OPENAI_API_KEY,
     GEMINI_MODEL,
     OPENAI_MODEL,
+    LLM_TIMEOUT_SECONDS,
 )
 
 
@@ -20,7 +21,9 @@ class LLMClient:
     def __init__(self):
         self.gemini_key = GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
         self.openai_key = OPENAI_API_KEY or os.getenv("OPENAI_API_KEY", "")
-        self.http_client = httpx.AsyncClient(timeout=45.0)
+        self.http_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(LLM_TIMEOUT_SECONDS, connect=10.0)
+        )
 
     async def close(self):
         await self.http_client.aclose()
@@ -74,24 +77,46 @@ class LLMClient:
         return results
 
     async def generate_json(self, prompt: str, system_instruction: str = "", enable_search: bool = False) -> Dict[str, Any]:
-        """Generates structured JSON using Gemini (preferred, with search grounding) or OpenAI."""
+        """Generate JSON without disguising configured-provider failures as success."""
         provider = DEFAULT_PROVIDER.lower().strip()
         if provider == "mock":
             return self._generate_smart_mock(prompt, system_instruction)
 
-        if provider in ("auto", "gemini") and self.gemini_key:
+        if provider == "gemini":
+            if not self.gemini_key:
+                raise RuntimeError("DEFAULT_PROVIDER=gemini but GEMINI_API_KEY is not configured.")
+            return await self._call_gemini(prompt, system_instruction, enable_search=enable_search)
+
+        if provider == "openai":
+            if not self.openai_key:
+                raise RuntimeError("DEFAULT_PROVIDER=openai but OPENAI_API_KEY is not configured.")
+            return await self._call_openai(prompt, system_instruction)
+
+        if provider != "auto":
+            raise RuntimeError("DEFAULT_PROVIDER must be one of: auto, gemini, openai, mock.")
+
+        configured_provider_failed = False
+        if self.gemini_key:
             try:
                 return await self._call_gemini(prompt, system_instruction, enable_search=enable_search)
             except Exception as e:
-                print(f"[LLMClient] Gemini error: {e}. Attempting fallback...")
+                configured_provider_failed = True
+                print(f"[LLMClient] Gemini error: {type(e).__name__}. Attempting OpenAI fallback...")
 
-        if provider in ("auto", "openai") and self.openai_key:
+        if self.openai_key:
             try:
                 return await self._call_openai(prompt, system_instruction)
             except Exception as e:
-                print(f"[LLMClient] OpenAI error: {e}. Attempting fallback...")
+                configured_provider_failed = True
+                print(f"[LLMClient] OpenAI error: {type(e).__name__}.")
 
-        # If no valid API key or network error, return smart mock
+        if configured_provider_failed:
+            raise RuntimeError(
+                "All configured LLM providers failed. Run `python -m "
+                "backend.enrichment.ping_models --provider <provider>` for details."
+            )
+
+        # No keys is an intentional local-development fallback.
         return self._generate_smart_mock(prompt, system_instruction)
 
     async def ping_models(self, provider: str = "all") -> Dict[str, Any]:
@@ -126,8 +151,12 @@ class LLMClient:
                     url,
                     headers={"x-goog-api-key": key, "Content-Type": "application/json"},
                     json={
-                        "contents": [{"parts": [{"text": "Reply with exactly PONG"}]}],
-                        "generationConfig": {"maxOutputTokens": 8, "temperature": 0},
+                        "contents": [{"parts": [{"text": "Return JSON with a single boolean field named pong set to true."}]}],
+                        "generationConfig": {
+                            "responseMimeType": "application/json",
+                            "maxOutputTokens": 32,
+                            "temperature": 0,
+                        },
                     },
                 )
             else:
@@ -173,7 +202,7 @@ class LLMClient:
                 }
             ],
             "generationConfig": {
-                "response_mime_type": "application/json"
+                "responseMimeType": "application/json"
             }
         }
 
@@ -184,14 +213,29 @@ class LLMClient:
 
         # If search grounding is requested and model supports tools
         if enable_search:
-            body["tools"] = [{"google_search": {}}]
+            body["tools"] = [{"googleSearch": {}}]
 
-        resp = await self.http_client.post(
-            url,
-            headers={"x-goog-api-key": self.gemini_key, "Content-Type": "application/json"},
-            json=body,
-        )
-        resp.raise_for_status()
+        try:
+            resp = await self.http_client.post(
+                url,
+                headers={"x-goog-api-key": self.gemini_key, "Content-Type": "application/json"},
+                json=body,
+            )
+        except httpx.TimeoutException as exc:
+            raise RuntimeError(
+                f"Gemini request timed out after {LLM_TIMEOUT_SECONDS:g}s."
+            ) from exc
+        except httpx.RequestError as exc:
+            raise RuntimeError(
+                f"Gemini network request failed: {type(exc).__name__}."
+            ) from exc
+        if resp.is_error:
+            try:
+                provider_message = str(resp.json().get("error", {}).get("message", ""))
+            except Exception:
+                provider_message = ""
+            detail = provider_message[:500] or "Provider rejected the request."
+            raise RuntimeError(f"Gemini request failed ({resp.status_code}): {detail}")
         data = resp.json()
         
         # Extract text from response
@@ -199,9 +243,29 @@ class LLMClient:
         if not candidates:
             raise ValueError("No candidates returned by Gemini")
             
-        text_content = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "{}")
-        # Parse JSON
-        return json.loads(text_content)
+        candidate = candidates[0]
+        parts = candidate.get("content", {}).get("parts", [])
+        text_content = "".join(
+            str(part.get("text", "")) for part in parts if isinstance(part, dict)
+        ) or "{}"
+        parsed = json.loads(text_content)
+
+        # Preserve the provider-returned grounding URLs for the competitor API.
+        grounding_chunks = candidate.get("groundingMetadata", {}).get("groundingChunks", [])
+        grounded_urls = []
+        for chunk in grounding_chunks:
+            web = chunk.get("web", {}) if isinstance(chunk, dict) else {}
+            uri = web.get("uri")
+            if uri:
+                grounded_urls.append(str(uri))
+        if grounded_urls and isinstance(parsed, dict):
+            existing_sources = parsed.get("groundingSources")
+            if not isinstance(existing_sources, list):
+                existing_sources = []
+            parsed["groundingSources"] = list(dict.fromkeys(
+                existing_sources + grounded_urls
+            ))
+        return parsed
 
     async def _call_openai(self, prompt: str, system_instruction: str) -> Dict[str, Any]:
         url = "https://api.openai.com/v1/chat/completions"
@@ -231,28 +295,38 @@ class LLMClient:
         lower_sys = system_instruction.lower()
         first_line = prompt.strip().split("\n")[0].lower()
 
+        # 0. Idea transcript relevance extraction
+        if "idea transcript relevance extractor" in lower_sys:
+            match = re.search(
+                r"NEW TRANSCRIPT DELTA START\s*(.*?)\s*NEW TRANSCRIPT DELTA END",
+                prompt,
+                flags=re.DOTALL,
+            )
+            relevant_body = match.group(1).strip() if match else ""
+            return {
+                "is_relevant": bool(relevant_body),
+                "relevant_body": relevant_body,
+                "reason": "Offline mock mode keeps the supplied delta as relevant context.",
+            }
+
         # 1. Competitor Agent
         if "competitive landscapes" in lower_sys or "competitor research ai agent" in first_line:
             return {
+                "summary": "Offline demonstration competitor analysis; configure a provider for live research.",
                 "competitors": [
                     {
-                        "name": "Miro / Mural",
-                        "summary": "Collaborative digital whiteboards with AI clustering and templates.",
-                        "differentiator": "Focuses on static post-it canvas rather than real-time voice-driven agentic tool calling."
+                        "name": "Demo competitor (offline)",
+                        "summary": "Placeholder result produced without a configured live model.",
+                        "differentiator": "Not suitable for market conclusions.",
+                        "idea": "Demonstration only",
+                        "yearOfFounding": "Unknown",
+                        "shortBio": "Offline placeholder—not a researched company profile.",
+                        "howWeDiffer": "Run with a valid provider to calculate this."
                     },
-                    {
-                        "name": "Otter.ai / Fireflies",
-                        "summary": "Meeting transcription and summary bots.",
-                        "differentiator": "Only records transcripts and summaries, does not synthesize ideas or spawn autonomous subagents."
-                    },
-                    {
-                        "name": "Whimsical AI",
-                        "summary": "AI mind mapping and flowcharts generated from text prompts.",
-                        "differentiator": "Requires manual prompt typing rather than continuous conversational transcription."
-                    }
                 ],
-                "market_landscape": "The market is split between passive meeting recorders and static whiteboards. An active agentic brainstorming companion creates a distinct new category.",
-                "our_positioning": "We position ourselves as an active AI co-founder during brainstorming: listening continuously, identifying distinct ideas, and autonomously dispatching research and workflow agents."
+                "market_landscape": "Unavailable in offline mock mode.",
+                "our_positioning": "Unavailable in offline mock mode.",
+                "groundingSources": [],
             }
 
         # 2. Workflow Agent
