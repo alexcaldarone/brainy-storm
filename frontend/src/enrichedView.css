@@ -1101,3 +1101,105 @@
 .json-code-container::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+/* Open questions stay visible instead of being hidden in the governance drawer. */
+.open-questions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(14, 165, 233, 0.05));
+  border: 1px solid rgba(96, 165, 250, 0.32);
+  border-radius: 10px;
+}
+
+.open-questions-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.open-questions-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.18);
+  border-radius: 8px;
+}
+
+.open-questions-header h4 { margin: 0; color: #eff6ff; font-size: 14px; }
+.open-questions-header p { margin: 3px 0 0; color: #94a3b8; font-size: 11.5px; }
+.open-questions-count { display: grid; min-width: 27px; height: 27px; place-items: center; color: #bfdbfe; background: rgba(59, 130, 246, 0.16); border-radius: 999px; font-size: 11px; font-weight: 700; }
+.open-questions-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.open-questions-list li { display: grid; grid-template-columns: 24px 1fr; align-items: start; gap: 9px; padding: 10px 12px; color: #dbeafe; background: rgba(15, 23, 42, 0.58); border: 1px solid rgba(96, 165, 250, 0.14); border-radius: 7px; }
+.open-questions-list li > span { display: grid; width: 22px; height: 22px; place-items: center; color: #93c5fd; background: rgba(59, 130, 246, 0.14); border-radius: 50%; font-size: 10px; font-weight: 700; }
+.open-questions-list p { margin: 1px 0 0; color: inherit; font-size: 12.5px; line-height: 1.5; }
+
+/* A quieter, light diagram surface keeps complex maps legible. */
+.diagrams-panel {
+  gap: 20px;
+  padding: 22px;
+  color: #18181b;
+  background: #fff;
+  border-color: #e4e4e7;
+  box-shadow: 0 8px 28px rgba(24, 24, 27, 0.06);
+}
+
+.diagrams-heading-icon { display: grid; width: 38px; height: 38px; place-items: center; color: #4338ca; background: #eef2ff; border-radius: 10px; }
+.diagrams-title-group > div { display: grid; gap: 3px; }
+.diagrams-panel .panel-title { color: #18181b; font-size: 17px; }
+.diagrams-title-group p { margin: 0; color: #71717a; font-size: 12px; }
+.diagrams-panel .diagram-tabs { background: #f4f4f5; border-color: #e4e4e7; }
+.diagrams-panel .diagram-tab-btn { color: #71717a; }
+.diagrams-panel .diagram-tab-btn:hover { color: #27272a; }
+.diagrams-panel .diagram-tab-btn.active { color: #312e81; background: #fff; box-shadow: 0 1px 4px rgba(24, 24, 27, 0.1); }
+.diagram-intro { margin: 0; padding: 14px 16px; color: #52525b; background: #fafafa; border-left: 3px solid #818cf8; border-radius: 0 8px 8px 0; font-size: 13px; line-height: 1.65; }
+
+.process-flow { display: flex; align-items: stretch; gap: 0; padding: 3px 2px 10px; overflow-x: auto; scroll-snap-type: x proximity; }
+.process-stage-wrap { display: flex; flex: 0 0 auto; align-items: center; }
+.process-stage { display: grid; width: 210px; min-height: 118px; align-content: start; gap: 12px; box-sizing: border-box; padding: 15px; background: #fafafa; border: 1px solid #e4e4e7; border-radius: 10px; scroll-snap-align: start; }
+.process-stage-number { display: grid; width: 28px; height: 28px; place-items: center; color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 7px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; }
+.process-stage p { margin: 0; color: #3f3f46; font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+.process-connector { flex: 0 0 auto; margin: 0 8px; color: #a1a1aa; }
+
+.diagram-map-block { overflow: hidden; background: #fff; border: 1px solid #e4e4e7; border-radius: 10px; }
+.diagram-map-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 13px; color: #52525b; background: #fafafa; border-bottom: 1px solid #e4e4e7; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.diagram-map-heading a { display: inline-flex; align-items: center; gap: 5px; color: #4f46e5; font-size: 10.5px; text-decoration: none; text-transform: none; letter-spacing: 0; }
+.diagram-map-heading a:hover { color: #312e81; }
+.diagram-section-label { margin-bottom: 9px; color: #71717a; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+
+.diagrams-panel .nodes-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 9px; }
+.diagrams-panel .component-node-card { align-items: flex-start; min-height: 110px; gap: 8px; padding: 13px; background: #fafafa; border-color: #e4e4e7; border-radius: 9px; }
+.diagrams-panel .node-label { color: #27272a; font-size: 13px; }
+.diagrams-panel .node-desc { color: #71717a; font-size: 11.5px; line-height: 1.5; }
+.diagrams-panel .node-type-badge { order: -1; color: #4f46e5; background: #eef2ff; }
+
+.architecture-connections { padding: 14px; background: #fafafa; border: 1px solid #e4e4e7; border-radius: 9px; }
+.connection-list { display: grid; gap: 7px; }
+.connection-row { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; color: #71717a; background: #fff; border: 1px solid #ededee; border-radius: 7px; font-size: 11px; }
+.connection-row code { color: #312e81; background: #eef2ff; border-radius: 4px; padding: 3px 6px; font-family: inherit; font-weight: 700; }
+.connection-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.diagrams-panel .mermaid-container { background: #fff; border: 0; border-radius: 0; }
+.diagrams-panel .mermaid-header-bar { padding: 8px 12px; background: #fff; border-color: #ededee; }
+.diagrams-panel .diagram-type-tag { color: #71717a; }
+.diagrams-panel .code-toggle-btn { color: #71717a; border-color: #d4d4d8; }
+.diagrams-panel .code-toggle-btn:hover { color: #27272a; border-color: #a1a1aa; }
+.diagrams-panel .mermaid-rendered-svg { min-height: 260px; padding: 26px; background: #fff; }
+.diagrams-panel .diagram-raw-pre { color: #3730a3; background: #fafafa; }
+
+@media (max-width: 640px) {
+  .diagrams-panel { padding: 16px; }
+  .diagrams-header-bar { align-items: flex-start; }
+  .diagram-tabs { width: 100%; }
+  .diagram-tab-btn { flex: 1; justify-content: center; }
+  .process-flow { flex-direction: column; overflow-x: visible; }
+  .process-stage-wrap { flex-direction: column; align-items: stretch; }
+  .process-stage { width: 100%; min-height: auto; }
+  .process-connector { align-self: center; margin: 7px 0; transform: rotate(90deg); }
+  .connection-row { flex-wrap: wrap; }
+  .connection-row > span { width: 100%; white-space: normal; }
+}
