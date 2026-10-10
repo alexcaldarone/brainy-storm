@@ -4,6 +4,16 @@ export type TranscriptLine = { person: string; initials: string; time: string; t
 type Status = 'stopped' | 'connecting' | 'recording' | 'paused' | 'saving'
 const base = (import.meta.env.VITE_TRANSCRIBER_URL || '/api').replace(/\/$/, '')
 
+function transcriptLine(text: string, time: string): TranscriptLine {
+  // Existing transcripts may encode the speaker as "Name: words".
+  const speaker = text.match(/^([\p{L}][\p{L}\p{M}'’.-]*(?:[ \t]+[\p{L}][\p{L}\p{M}'’.-]*){0,3}):[ \t]+(.+)$/u)
+  const person = speaker?.[1] || 'Room'
+  const initials = speaker
+    ? person.split(/\s+/).map(part => Array.from(part)[0]).slice(0, 2).join('').toUpperCase()
+    : 'RM'
+  return { person, initials, time, text: speaker?.[2] || text }
+}
+
 export function useTranscription() {
   const [transcript, setTranscript] = useState<TranscriptLine[]>([])
   const [recording, setRecording] = useState<Status>('stopped')
@@ -32,7 +42,7 @@ export function useTranscription() {
     if (!mounted.current) return
     setTranscript(data.transcript.split('\n').filter(line => line.trim()).map(line => {
       const match = line.match(/^\[([^\]]+)\]\s*(.*)$/)
-      return { person: 'Room', initials: 'RM', time: match?.[1] || '', text: match?.[2] || line }
+      return transcriptLine(match?.[2] || line, match?.[1] || '')
     }))
     setLoaded(true)
   }
@@ -118,7 +128,7 @@ export function useTranscription() {
           node.connect(context.destination)
           setRecording('recording')
         } else if (message.type === 'transcript') {
-          setTranscript(current => [...current, { person: 'Room', initials: 'RM', time: message.timestamp, text: message.text }])
+          setTranscript(current => [...current, transcriptLine(message.text, message.timestamp)])
         } else if (message.type === 'error') {
           failed = true
           setError(message.message || 'Transcription failed.')
@@ -156,7 +166,7 @@ export function useTranscription() {
   }
 
   function exportTranscript() {
-    const blob = new Blob([transcript.map(line => `[${line.time}] ${line.text}`).join('\n')], { type: 'text/plain' })
+    const blob = new Blob([transcript.map(line => `[${line.time}] ${line.person === 'Room' ? '' : `${line.person}: `}${line.text}`).join('\n')], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
