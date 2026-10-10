@@ -1,5 +1,6 @@
 # {Tech: Europe} Agentic AI Hack
 
+Every folder is its own microservice (python server / react frontend).
 
 ### Collaborators
 
