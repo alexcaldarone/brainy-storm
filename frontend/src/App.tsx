@@ -55,6 +55,7 @@ function App() {
   }))
   const [expanded, setExpanded] = useState<string[]>(['Hackathon'])
   const [ideasError, setIdeasError] = useState('')
+  const [showActivityNote, setShowActivityNote] = useState(true)
   const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
   const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
   const ideas = sessionIdeas[activeSession] || []
@@ -238,12 +239,18 @@ function App() {
               {collaboratorActions}
             </div>
 
+            <div className="board-layout-toolbar">
+              <span>{ideas.length} ideas · {layout === 'horizontal' ? 'Newest on the right' : 'Grid view'}</span>
+              <div className="layout-picker" role="group" aria-label="Card layout">
+                <button type="button" aria-pressed={layout === 'horizontal'} onClick={() => setLayout('horizontal')}><Columns3 size={15} /> Horizontal</button>
+                <button type="button" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}><LayoutGrid size={15} /> Grid</button>
+              </div>
+            </div>
             {ideas.length > 0 ? (
               <div className={`idea-grid ${layout === 'horizontal' ? 'idea-rail' : ''}`} tabIndex={0} role="region" aria-label="Ideas">
                 {ideas.map((idea, index) => (
                   <article
                     key={idea.id}
-                    ref={visibleFocusedIdeaId === idea.id ? discussedCardRef : undefined}
                     className={`idea-card ${activeSession === 'Hackathon' && focusedIdeaId === idea.id ? 'discussion-focus' : ''}`}
                     onClick={() => setSelectedIdea(idea.id)}
                   >

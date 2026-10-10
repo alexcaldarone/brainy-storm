@@ -1,8 +1,8 @@
 import json
 
 
-def build_prompt(ideas: list[dict], chunk: str) -> str:
-    known_ideas = [{"id": idea["id"], "title": idea["title"], "summary": idea["summary"]} for idea in ideas]
+def build_prompt(ideas: dict[str, dict], chunk: str) -> str:
+    known_ideas = [{"id": idea_id, "title": idea["title"], "summary": idea["summary"]} for idea_id, idea in ideas.items()]
     known_ideas_json = json.dumps(known_ideas, indent=2, ensure_ascii=False)
 
     return f"""You are the idea tracker of a live brainstorming session. A team is talking, and their speech is transcribed in real time.
