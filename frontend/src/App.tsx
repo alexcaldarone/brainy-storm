@@ -64,10 +64,10 @@ function App() {
   const [ideasError, setIdeasError] = useState('')
   const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
   const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
+  const discussedCardRef = useRef<HTMLElement | null>(null)
   const ideas = sessionIdeas[activeSession] || []
   const setIdeas = (update: (current: Idea[]) => Idea[]) => setSessionIdeas(current => ({ ...current, [activeSession]: update(current[activeSession] || []) }))
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
-  const [savedIdeas, setSavedIdeas] = useState<string[]>([])
   const { transcript, recording, resetting, error, loaded, elapsedSeconds, startRecording, stopRecording, resetTranscript, exportTranscript } = useTranscription()
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const transcriptFeedRef = useRef<HTMLDivElement>(null)
@@ -257,6 +257,7 @@ function App() {
                 {ideas.map((idea, index) => (
                   <article
                     key={idea.id}
+                    ref={activeSession === 'Hackathon' && focusedIdeaId === idea.id ? (el) => { discussedCardRef.current = el } : undefined}
                     className={`idea-card ${activeSession === 'Hackathon' && focusedIdeaId === idea.id ? 'discussion-focus' : ''}`}
                     onClick={() => setSelectedIdea(idea.id)}
                   >
