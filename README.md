@@ -5,16 +5,6 @@ A local brainstorming prototype: browser microphone â†’ Gradium transcription â†
 ## Run with Docker
 
 Install and start Docker Desktop, then configure your keys in the repository root:
-### Running locally
-
-Run each command in its own terminal, in this order:
-
-   ```bash
-   cd backend/transcriber && uv run python main.py
-   ```
-   ```bash
-   cd backend/engine && uv run python main.py
-   ```
 
 ### Collaborators
 

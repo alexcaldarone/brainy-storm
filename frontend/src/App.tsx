@@ -5,6 +5,12 @@ import {
   LayoutGrid,
   AudioLines,
   Clock3,
+  ChevronDown,
+  ChevronRight,
+  Command,
+  Folder,
+  FolderOpen,
+  Search,
   FileText,
   Info,
   LoaderCircle,
@@ -17,12 +23,21 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import './enrichedView.css'
+import repositoryIdeas from '../../data/ideas.json'
 import { AbstractSymbol, BrandShape, RecordingShape } from './BrandShape'
 import { EditableIdea } from './EditableIdea'
 import { AvatarGroup } from './AvatarGroup'
 import { mergeGeneratedIdeas, readWorkspace, workspaceKey } from './ideaWorkspace'
-import type { GeneratedIdea, Idea } from './ideaWorkspace'
+import type { GeneratedIdea, Idea, Session } from './ideaWorkspace'
 import { useTranscription } from './useTranscription'
+
+const initialSessions: Session[] = [
+  { name: 'Hackathon', date: 'Today', ideas: repositoryIdeas.ideas.length },
+  { name: 'Agent onboarding', date: 'Yesterday', ideas: 8 },
+  { name: 'Community launch', date: 'Oct 08', ideas: 5 },
+  { name: 'A better daily standup', date: 'Oct 04', ideas: 3 },
+]
 
 const sessionParticipants = [
   { initials: 'AC', color: 'avatar-one' },
@@ -39,7 +54,7 @@ function InfoBanner({ message, role = 'status', loading = false }: { message: st
 
 function thumbnailUrl(thumbnail?: string | null) {
   if (!thumbnail || /^(?:https?:|data:|blob:)/.test(thumbnail)) return thumbnail || ''
-  const base = (import.meta.env.VITE_ENRICHMENT_URL || '/api/enrichment').replace(/\/$/, '')
+  const base = (import.meta.env.VITE_IDEAS_URL || import.meta.env.VITE_ENRICHMENT_URL || '/api/enrichment').replace(/\/$/, '')
   return thumbnail.startsWith('/ideas/') ? `${base}${thumbnail}` : thumbnail
 }
 
@@ -48,8 +63,18 @@ function App() {
     try { return readWorkspace(localStorage.getItem(workspaceKey)) } catch { return null }
   })
   const [storageError, setStorageError] = useState(false)
-  const activeSession = 'Brainstorm'
-  const [ideas, setIdeas] = useState<Idea[]>(restored?.sessionIdeas.Hackathon || [])
+  const [sessions, setSessions] = useState(() => {
+    const saved = restored?.sessions || []
+    const missingBoilerplates = initialSessions.filter(template => !saved.some(session => session.name === template.name))
+    return saved.length ? [...saved, ...missingBoilerplates] : initialSessions
+  })
+  const [activeSession, setActiveSession] = useState('Hackathon')
+  const [search, setSearch] = useState('')
+  const [sessionIdeas, setSessionIdeas] = useState<Record<string, Idea[]>>(() => ({
+    ...restored?.sessionIdeas,
+    Hackathon: mergeGeneratedIdeas(restored?.sessionIdeas.Hackathon || [], repositoryIdeas.ideas),
+  }))
+  const [expanded, setExpanded] = useState<string[]>(['Hackathon'])
   const [restarting, setRestarting] = useState(false)
   const [restartError, setRestartError] = useState('')
   const restartDialog = useRef<HTMLDialogElement>(null)
@@ -59,6 +84,8 @@ function App() {
   const [ideasLoading, setIdeasLoading] = useState(true)
   const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
   const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
+  const ideas = sessionIdeas[activeSession] || []
+  const setIdeas = (update: (current: Idea[]) => Idea[]) => setSessionIdeas(current => ({ ...current, [activeSession]: update(current[activeSession] || []) }))
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
   const { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, resetMemory, exportTranscript } = useTranscription()
   const [transcriptOpen, setTranscriptOpen] = useState(false)
@@ -68,12 +95,12 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(workspaceKey, JSON.stringify({ sessions: [{ name: 'Brainstorm', date: 'Today', ideas: ideas.length }], sessionIdeas: { Hackathon: ideas } }))
+      localStorage.setItem(workspaceKey, JSON.stringify({ sessions, sessionIdeas }))
       // Report the result of synchronizing with browser storage.
       // oxlint-disable-next-line react/set-state-in-effect
       setStorageError(false)
     } catch { setStorageError(true) }
-  }, [ideas])
+  }, [sessions, sessionIdeas])
 
   useLayoutEffect(() => {
     const feed = transcriptFeedRef.current
@@ -83,6 +110,7 @@ function App() {
   useEffect(() => {
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout>
+    let refreshDelay = 3000
     async function refresh() {
       if (resetInProgress.current) { timer = setTimeout(refresh, 3000); return }
       const generation = pollingGeneration.current
@@ -93,19 +121,21 @@ function App() {
         const payload = await response.json() as GeneratedIdea[] | { ideas: GeneratedIdea[] }
         const data = Array.isArray(payload) ? payload : payload.ideas
         if (controller.signal.aborted || generation !== pollingGeneration.current) return
-        setIdeas(current => mergeGeneratedIdeas(current, data))
+        setSessionIdeas(current => ({ ...current, Hackathon: mergeGeneratedIdeas(current.Hackathon || [], data) }))
         const focused = data.find(idea => idea.is_currently_discussed)
         setFocusedIdeaId(focused ? `engine-${focused.id}` : null)
         setIdeasError('')
+        refreshDelay = 3000
       } catch {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && generation === pollingGeneration.current) {
+          refreshDelay = Math.min(refreshDelay * 2, 30000)
           setFocusedIdeaId(null)
           setIdeasError('Showing saved ideas. Live updates are unavailable; retrying…')
         }
       } finally {
         if (!controller.signal.aborted) {
           setIdeasLoading(false)
-          timer = setTimeout(refresh, 3000)
+          timer = setTimeout(refresh, refreshDelay)
         }
       }
     }
@@ -113,9 +143,12 @@ function App() {
     return () => { controller.abort(); clearTimeout(timer) }
   }, [])
 
+  const query = search.trim().toLowerCase()
+  const matchesIdea = (idea: Idea) => `${idea.title} ${idea.summary}`.toLowerCase().includes(query)
+  const visibleSessions = sessions.filter(session => session.name.toLowerCase().includes(query) || (sessionIdeas[session.name] || []).some(matchesIdea))
   const currentIdea = ideas.find(idea => idea.id === selectedIdea)
 
-  const visibleFocusedIdeaId = !currentIdea
+  const visibleFocusedIdeaId = activeSession === 'Hackathon' && !currentIdea
     ? ideas.find(idea => idea.id === focusedIdeaId)?.id
     : undefined
 
@@ -132,7 +165,7 @@ function App() {
   const seconds = String(elapsedSeconds % 60).padStart(2, '0')
 
   function downloadMemory() {
-    const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), ideas, transcript }, null, 2)], { type: 'application/json' }))
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), sessions, sessionIdeas, transcript }, null, 2)], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url
     link.download = 'brainstorm-memory.json'
@@ -147,7 +180,8 @@ function App() {
     pollingGeneration.current += 1
     try {
       await resetMemory()
-      setIdeas([])
+      setSessionIdeas(current => ({ ...current, Hackathon: [] }))
+      setActiveSession('Hackathon')
       setSelectedIdea(null)
       setFocusedIdeaId(null)
       restartDialog.current?.close()
@@ -161,6 +195,15 @@ function App() {
     }
   }
 
+  function createSession() {
+    const name = `New brainstorm ${sessions.length}`
+    setSessions((current) => [{ name, date: 'Just now', ideas: 0 }, ...current])
+    setActiveSession(name)
+    setExpanded(current => [...current, name])
+    setSearch('')
+    setSelectedIdea(null)
+  }
+
   function addIdea() {
     const nextIdea: Idea = {
       id: crypto.randomUUID(),
@@ -172,6 +215,12 @@ function App() {
     }
     setIdeas((current) => [...current, nextIdea])
     setSelectedIdea(nextIdea.id)
+  }
+
+  function openSession(name: string, ideaId: string | null = null) {
+    setActiveSession(name)
+    setSelectedIdea(ideaId)
+    setExpanded(current => current.includes(name) ? current : [...current, name])
   }
 
   const collaboratorActions = (
@@ -191,13 +240,64 @@ function App() {
         <button type="button" className="icon-button restart-dialog-close" aria-label="Cancel restart" disabled={restarting} onClick={() => restartDialog.current?.close()}><X size={18} /></button>
         <h2 id="restart-title">Restart brainstorm?</h2>
         <p>Are you sure you want to clear the memory and start over?</p>
-        <p>This clears all ideas and the transcript. Download your memory first if you want to keep a copy.</p>
+        <p>This clears the Hackathon ideas and the transcript. Other brainstorms are kept. Download your memory first if you want to keep a copy.</p>
         {restartError && <p role="alert">{restartError}</p>}
         <div className="restart-actions">
           <button className="record-control primary-control" disabled={restarting} onClick={() => void restartBrainstorm()}>{restarting ? 'Restarting…' : 'Clear memory and restart'}</button>
           <button className="outline-button" disabled={restarting} onClick={downloadMemory}><Download size={14} /> Download memory</button>
         </div>
       </dialog>
+      <aside className="session-sidebar" aria-label="Brainstorming sessions">
+        <div className="wordmark">brainy storm</div>
+        <button type="button" className="new-session-button" onClick={createSession} aria-label="New brainstorm">
+          <Plus size={16} />
+          <span>New brainstorm</span>
+          <span className="shortcut"><Command size={11} /> K</span>
+        </button>
+
+        <label className="session-search">
+          <Search size={15} />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search brainstorms & ideas"
+            aria-label="Search brainstorms and ideas"
+          />
+          <span className="search-shortcut">⌘ /</span>
+        </label>
+
+        <nav className="session-list-area" aria-label="Brainstorms and ideas">
+          <div className="session-list">
+            {visibleSessions.map(session => {
+              const open = Boolean(query) || expanded.includes(session.name)
+              const children = (sessionIdeas[session.name] || []).filter(idea => !query || session.name.toLowerCase().includes(query) || matchesIdea(idea))
+              return <div className="brainstorm-folder" key={session.name}>
+                <div className={`folder-row ${activeSession === session.name && !currentIdea ? 'active' : ''}`}>
+                  <button type="button" className="folder-toggle" aria-label={`${open ? 'Collapse' : 'Expand'} ${session.name}`} aria-expanded={open} onClick={() => setExpanded(current => current.includes(session.name) ? current.filter(name => name !== session.name) : [...current, session.name])}>
+                    {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                  </button>
+                  <button type="button" className="session-item" onClick={() => openSession(session.name)}>
+                    {open ? <FolderOpen size={15} /> : <Folder size={15} />}<span className="session-name">{session.name}</span>
+                  </button>
+                </div>
+                {open && <div className="folder-ideas">
+                  {children.map(idea => <button key={idea.id} type="button" className={`idea-nav-item ${activeSession === session.name && selectedIdea === idea.id ? 'active' : ''}`} aria-current={activeSession === session.name && selectedIdea === idea.id ? 'page' : undefined} title={idea.title} onClick={() => openSession(session.name, idea.id)}><AbstractSymbol /><span>{idea.title || 'Untitled idea'}</span></button>)}
+                  {children.length === 0 && <p className="empty-folder">No ideas yet</p>}
+                </div>}
+              </div>
+            })}
+            {visibleSessions.length === 0 && <p className="empty-search">No brainstorms or ideas found</p>}
+          </div>
+        </nav>
+        <div className="sidebar-bottom">
+          <button type="button" className="profile-row" aria-label="Leonarda Lovrić profile">
+            <span className="profile-avatar">LL</span>
+            <span className="profile-copy"><strong>Leonarda Lovrić</strong><small>Personal workspace</small></span>
+            <MoreHorizontal size={17} />
+          </button>
+        </div>
+      </aside>
+
       <main className="main-column">
         <section className={`board-scroll ${!currentIdea && layout === 'horizontal' ? 'horizontal-board' : ''}`}>
           <div className="board-content">
@@ -220,7 +320,7 @@ function App() {
                   <article
                     key={idea.id}
                     ref={visibleFocusedIdeaId === idea.id ? discussedCardRef : undefined}
-                    className={`idea-card ${focusedIdeaId === idea.id ? 'discussion-focus' : ''}`}
+                    className={`idea-card ${activeSession === 'Hackathon' && focusedIdeaId === idea.id ? 'discussion-focus' : ''}`}
                     onClick={() => setSelectedIdea(idea.id)}
                   >
                     <div className={`idea-art art-${idea.pattern}`}>
@@ -228,7 +328,7 @@ function App() {
                       {idea.thumbnail && <img className="idea-thumbnail" src={thumbnailUrl(idea.thumbnail)} alt="" onError={event => { event.currentTarget.style.display = 'none' }} />}
                     </div>
                     <div className="idea-card-body">
-                      <div className="idea-card-topline">{focusedIdeaId === idea.id && <span className="discussion-label">Discussing now</span>}<span className="idea-tag">{idea.tag}</span><button className="icon-button small" type="button" aria-label="Idea options"><MoreHorizontal size={17} /></button></div>
+                      <div className="idea-card-topline">{activeSession === 'Hackathon' && focusedIdeaId === idea.id && <span className="discussion-label">Discussing now</span>}<span className="idea-tag">{idea.tag}</span><button className="icon-button small" type="button" aria-label="Idea options"><MoreHorizontal size={17} /></button></div>
                       <h3><button type="button" className="idea-title-button" onClick={() => setSelectedIdea(idea.id)}>{idea.title || 'Untitled idea'}</button></h3>
                       <p>{idea.summary}</p>
                       <div className="idea-card-footer">
