@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 export type TranscriptLine = { person: string; initials: string; time: string; text: string }
-type Status = 'stopped' | 'connecting' | 'recording' | 'saving'
+type Status = 'stopped' | 'connecting' | 'recording' | 'paused' | 'saving'
 const base = (import.meta.env.VITE_TRANSCRIBER_URL || '/api/transcriber').replace(/\/$/, '')
 
 function transcriptLine(text: string, time = ''): TranscriptLine {
@@ -18,6 +18,7 @@ export function useTranscription() {
   const resources = useRef<{ stream?: MediaStream; context?: AudioContext; node?: AudioWorkletNode; socket?: WebSocket }>({})
   const busy = useRef(false)
   const mounted = useRef(true)
+  const stopTarget = useRef<Status>('stopped')
   const stopping = useRef(false)
   const historyRequest = useRef(0)
   const readyTimer = useRef<number | undefined>(undefined)
@@ -92,8 +93,9 @@ export function useTranscription() {
     if (mounted.current) { setError(message); setRecording('stopped') }
   }
 
-  function stopRecording() {
+  function stopRecording(pause = false) {
     if (stopping.current) return
+    stopTarget.current = pause ? 'paused' : 'stopped'
     stopping.current = true
     releaseAudio()
     window.clearTimeout(readyTimer.current)
@@ -196,7 +198,7 @@ export function useTranscription() {
           setError(`Recording saved, but reload failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
         } finally {
           busy.current = false
-          if (mounted.current) setRecording('stopped')
+          if (mounted.current) setRecording(stopTarget.current)
         }
       }
     } catch (err) {
@@ -225,6 +227,27 @@ export function useTranscription() {
     }
   }
 
+  async function resetMemory() {
+    const socket = resources.current.socket
+    if (socket && socket.readyState !== WebSocket.CLOSED) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error('Recording is still saving. Please wait and retry.')), 20000)
+        socket.addEventListener('close', event => {
+          window.clearTimeout(timeout)
+          if (event.code === 1000) resolve()
+          else reject(new Error('Recording did not finish saving. Download your memory before retrying.'))
+        }, { once: true })
+        stopRecording(true)
+      })
+    }
+    const response = await fetch(`${base}/memory/reset`, { method: 'POST', signal: AbortSignal.timeout(8000) })
+    if (!response.ok) throw new Error('Could not clear memory. Please retry once the backend is available and all recordings have stopped.')
+    setTranscript([])
+    setElapsedSeconds(0)
+    setLoaded(true)
+    setRecording('stopped')
+  }
+
   async function exportTranscript() {
     try {
       const blob = new Blob([await readTranscript()], { type: 'text/plain' })
@@ -239,5 +262,5 @@ export function useTranscription() {
     }
   }
 
-  return { transcript, recording, resetting, error, loaded, elapsedSeconds, startRecording, stopRecording, resetTranscript, exportTranscript }
+  return { transcript, recording, resetting, error, loaded, elapsedSeconds, startRecording, stopRecording, resetTranscript, resetMemory, exportTranscript }
 }
