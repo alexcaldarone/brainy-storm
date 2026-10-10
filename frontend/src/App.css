@@ -204,10 +204,6 @@
 .add-idea-icon { display: grid; width: 34px; height: 34px; place-items: center; color: #52525b; background: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 8px; }
 .add-idea-card strong { color: #3f3f46; font-size: 11px; font-weight: 600; }
 .add-idea-card > span:last-child { color: #a1a1aa; font-size: 9px; text-align: center; }
-.activity-note { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 10px 11px; color: #71717a; background: #ffffffb8; border: 1px solid #e4e4e7; border-radius: 6px; font-size: 9px; }
-.activity-note > svg { color: #52525b; }
-.activity-note > span { flex: 1; }
-.activity-note button { display: grid; width: 22px; height: 22px; place-items: center; color: #a1a1aa; background: transparent; border: 0; cursor: pointer; }
 .empty-board { display: grid; min-height: 320px; place-content: center; justify-items: center; gap: 10px; color: #a1a1aa; background: #ffffffbd; border: 1px dashed #d4d4d8; border-radius: 8px; text-align: center; }
 .empty-board-icon { display: grid; width: 44px; height: 44px; place-items: center; color: #52525b; background: #f4f4f5; border-radius: 50%; }
 .empty-board strong { color: #27272a; font-size: 13px; }
