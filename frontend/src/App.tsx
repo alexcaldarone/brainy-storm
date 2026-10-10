@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import { BrandShape, RecordingShape } from './BrandShape'
 import { useTranscription } from './useTranscription'
 
 type Idea = {
@@ -245,9 +246,7 @@ function App() {
                       >
                         <Bookmark size={15} fill={savedIdeas.includes(idea.title) ? 'currentColor' : 'none'} />
                       </button>
-                      {idea.pattern === 'orbit' && <span className="orbit-shape"><span /><span /><span /></span>}
-                      {idea.pattern === 'grid' && <span className="grid-shape"><i /><i /><i /><i /></span>}
-                      {idea.pattern === 'signal' && <span className="signal-shape"><i /><i /><i /><i /><i /></span>}
+                      <BrandShape variant={index % 6} />
                     </div>
                     <div className="idea-card-body">
                       <div className="idea-card-topline"><span className="idea-tag">{idea.tag}</span><button className="icon-button small" type="button" aria-label="Idea options"><MoreHorizontal size={17} /></button></div>
@@ -282,9 +281,7 @@ function App() {
         </section>
 
         <footer className="recording-dock">
-          <div className={`waveform ${recording !== 'recording' ? 'muted' : ''}`} aria-hidden="true">
-            {Array.from({ length: 37 }, (_, index) => <i key={index} style={{ '--bar-height': `${10 + ((index * 17 + index % 5 * 11) % 25)}px` } as React.CSSProperties} />)}
-          </div>
+          <RecordingShape active={recording === 'recording'} />
           <span className="recording-time"><Clock3 size={14} /> {minutes}:{seconds}</span>
           <button
             type="button"

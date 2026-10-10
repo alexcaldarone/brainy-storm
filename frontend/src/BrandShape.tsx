@@ -1,0 +1,31 @@
+/** Abstract artwork inspired by the brand's scalloped silhouettes. */
+export function BrandShape({ variant }: { variant: number }) {
+  const stacked = variant % 2 === 1
+  return (
+    <svg className={`brand-shape shape-${variant}`} viewBox="0 0 360 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+      <rect className="shape-ground" width="360" height="180" />
+      {stacked ? <g className="shape-ink">
+        <ellipse cx="180" cy="50" rx="108" ry="18" />
+        <ellipse cx="180" cy="76" rx="130" ry="22" />
+        <ellipse cx="180" cy="110" rx="153" ry="27" />
+        <ellipse cx="180" cy="151" rx="178" ry="33" />
+        <path d="M0 150h360v40H0z" />
+      </g> : <path className="shape-ink" d="M-20 180V120Q12 30 44 130Q77-42 110 101Q145-97 180 76Q217-43 248 115Q278 9 310 137Q340 56 380 137V180Z" />}
+    </svg>
+  )
+}
+
+export function RecordingShape({ active }: { active: boolean }) {
+  return (
+    <div className={`recording-visual ${active ? 'is-recording' : ''}`}>
+      <svg viewBox="0 0 160 56" aria-hidden="true" focusable="false">
+        <g className="recording-lobes">
+          {[12, 34, 56, 80, 104, 126, 148].map((x, index) => (
+            <ellipse key={x} cx={x} cy="28" rx="12" ry={[10, 17, 22, 27, 22, 17, 10][index]} style={{ animationDelay: `${index * -0.13}s` }} />
+          ))}
+        </g>
+      </svg>
+      <span>{active ? 'Listening' : 'Ready to record'}</span>
+    </div>
+  )
+}
