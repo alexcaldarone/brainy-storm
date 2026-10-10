@@ -114,3 +114,23 @@ When the frontend team builds the record button:
 - `GET /health` – Check server status and if API key is configured.
 - `GET /transcript` – View contents of `data/transcript.txt`.
 - `POST /transcript/clear` – Reset `data/transcript.txt` for a new brainstorming session. Returns HTTP `409` while any recording is initializing, active, or saving its final results. Stop all recordings and wait for completion before clearing.
+
+## Connected frontend
+
+Run `npm run dev --prefix frontend` from the repository root alongside this
+service. Vite proxies `/api` HTTP and WebSocket requests to port 8000.
+For a separately hosted frontend, set `VITE_TRANSCRIBER_URL` to the service's
+HTTP(S) URL at build time, or configure an equivalent `/api` reverse proxy.
+
+Click **Start recording** and allow microphone access (localhost or HTTPS is
+required). The frontend loads the existing backend transcript before sending
+24 kHz mono PCM, displays live captions, and releases the microphone on pause
+or stop. Both controls drain and save the recording before allowing a restart.
+Export downloads the transcript currently held in the frontend's memory.
+The backend has one shared transcript; the sidebar's sample boards do not
+create separate backend recording sessions.
+
+The store loads `data/transcript.txt` into memory on startup and updates that
+memory after successful appends and clears. Restart the service to load edits
+made directly to the file. The frontend retains history and live captions in
+React state, including across pause/resume; reloading retrieves persisted history.

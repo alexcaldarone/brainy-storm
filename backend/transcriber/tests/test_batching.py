@@ -166,3 +166,13 @@ class BatchingTests(unittest.IsolatedAsyncioTestCase):
         await self.store.append("Previous session\n")
         await self.store.initialize()
         self.assertEqual(await self.store.read(), "Previous session\n")
+
+    async def test_history_is_loaded_into_memory_and_new_batches_append(self):
+        self.store.path.write_text("Existing history\n", encoding="utf-8")
+        await self.store.initialize()
+        with patch.object(Path, "read_text", side_effect=AssertionError("Must read memory")):
+            self.assertEqual(await self.store.read(), "Existing history\n")
+            await self.store.append("New recording\n")
+            self.assertEqual(await self.store.read(), "Existing history\nNew recording\n")
+            self.assertTrue(await self.store.clear())
+            self.assertEqual(await self.store.read(), "")

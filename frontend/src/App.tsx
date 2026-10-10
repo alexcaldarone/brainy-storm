@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Activity,
   Archive,
@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import { useTranscription } from './useTranscription'
 
 type Idea = {
   title: string
@@ -73,33 +74,6 @@ const seedIdeas: Idea[] = [
   },
 ]
 
-const transcript = [
-  {
-    person: 'Alex',
-    initials: 'AC',
-    time: '10:42',
-    text: 'What if we made the ideas the center of the meeting, instead of the notes?',
-  },
-  {
-    person: 'You',
-    initials: 'LL',
-    time: '10:43',
-    text: 'Yeah. Something that can keep up with how quickly people jump between thoughts.',
-  },
-  {
-    person: 'Giacomo',
-    initials: 'GC',
-    time: '10:43',
-    text: 'And each idea could have its own little space to get clearer as we talk.',
-  },
-  {
-    person: 'Marko',
-    initials: 'MH',
-    time: '10:44',
-    text: 'The agent could group related ideas without interrupting the conversation.',
-  },
-]
-
 function App() {
   const [sessions, setSessions] = useState(initialSessions)
   const [activeSession, setActiveSession] = useState('Hackathon')
@@ -107,15 +81,9 @@ function App() {
   const [ideas, setIdeas] = useState(seedIdeas)
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
   const [savedIdeas, setSavedIdeas] = useState<string[]>([])
-  const [recording, setRecording] = useState<'recording' | 'paused' | 'stopped'>('recording')
-  const [elapsedSeconds, setElapsedSeconds] = useState(18 * 60 + 42)
+  const { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, exportTranscript } = useTranscription()
   const [transcriptOpen, setTranscriptOpen] = useState(false)
-
-  useEffect(() => {
-    if (recording !== 'recording') return
-    const timer = window.setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000)
-    return () => window.clearInterval(timer)
-  }, [recording])
+  const transitioning = recording === 'connecting' || recording === 'saving'
 
   const visibleSessions = sessions.filter((session) =>
     session.name.toLowerCase().includes(search.toLowerCase()),
@@ -147,14 +115,6 @@ function App() {
     setSavedIdeas((current) =>
       current.includes(title) ? current.filter((item) => item !== title) : [...current, title],
     )
-  }
-
-  function toggleRecording() {
-    setRecording((current) => (current === 'recording' ? 'paused' : 'recording'))
-  }
-
-  function stopRecording() {
-    setRecording('stopped')
   }
 
   return (
@@ -326,21 +286,19 @@ function App() {
         <footer className="recording-dock">
           <div className="recording-status">
             <span className={`recording-indicator ${recording}`}><span /></span>
-            <div className="recording-copy"><strong>{recording === 'recording' ? 'Recording' : recording === 'paused' ? 'Paused' : 'Session ended'}</strong><span>{recording === 'stopped' ? 'Transcript saved locally' : 'Live transcript'}</span></div>
+            <div className="recording-copy"><strong>{recording === 'recording' ? 'Recording' : recording === 'paused' ? 'Paused' : recording === 'connecting' ? 'Connecting…' : recording === 'saving' ? 'Saving…' : 'Ready to record'}</strong><span>{recording === 'recording' ? 'Live transcript' : 'Transcript retained in memory'}</span></div>
           </div>
           <div className={`waveform ${recording !== 'recording' ? 'muted' : ''}`} aria-hidden="true">
             {Array.from({ length: 37 }, (_, index) => <i key={index} style={{ '--bar-height': `${10 + ((index * 17 + index % 5 * 11) % 25)}px` } as React.CSSProperties} />)}
           </div>
           <span className="recording-time"><Clock3 size={14} /> {minutes}:{seconds}</span>
-          {recording === 'stopped' ? (
-            <button type="button" className="record-control primary-control" onClick={() => setRecording('recording')}><Play size={14} fill="currentColor" /><span>Resume session</span></button>
-          ) : (
+          {recording === 'recording' ? (
             <>
-              <button type="button" className="record-control pause-control" onClick={toggleRecording} aria-label={recording === 'recording' ? 'Pause transcript' : 'Resume transcript'}>
-                {recording === 'recording' ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
-              </button>
-              <button type="button" className="record-control stop-control" onClick={stopRecording} aria-label="Stop transcript"><Square size={13} fill="currentColor" /></button>
+              <button type="button" className="record-control pause-control" onClick={() => stopRecording(true)} aria-label="Pause transcript"><Pause size={15} fill="currentColor" /></button>
+              <button type="button" className="record-control stop-control" onClick={() => stopRecording()} aria-label="Stop transcript"><Square size={13} fill="currentColor" /></button>
             </>
+          ) : (
+            <button type="button" className="record-control primary-control" disabled={transitioning} onClick={() => void startRecording()}><Play size={14} fill="currentColor" /><span>{transitioning ? 'Please wait…' : recording === 'paused' ? 'Resume recording' : 'Start recording'}</span></button>
           )}
           <button type="button" className="record-more icon-button small" aria-label="Recording options"><MoreHorizontal size={17} /></button>
         </footer>
@@ -348,24 +306,27 @@ function App() {
 
       <aside className={`transcript-sidebar ${transcriptOpen ? 'mobile-open' : ''}`} aria-label="Live transcript">
         <div className="transcript-header">
-          <div><div className="transcript-title-row"><h2>Transcript</h2><button type="button" className="icon-button small mobile-close" onClick={() => setTranscriptOpen(false)} aria-label="Close transcript"><X size={16} /></button></div><p><span className={`transcript-live ${recording === 'recording' ? 'is-live' : ''}`} />{recording === 'recording' ? 'Live transcription' : recording === 'paused' ? 'Transcription paused' : 'Session ended'}</p></div>
+          <div><div className="transcript-title-row"><h2>Transcript</h2><button type="button" className="icon-button small mobile-close" onClick={() => setTranscriptOpen(false)} aria-label="Close transcript"><X size={16} /></button></div><p><span className={`transcript-live ${recording === 'recording' ? 'is-live' : ''}`} />{recording === 'recording' ? 'Live transcription' : recording === 'paused' ? 'Transcription paused' : 'Ready to record'}</p></div>
           <button type="button" className="icon-button small" aria-label="Transcript options"><MoreHorizontal size={18} /></button>
         </div>
         <div className="transcript-tools">
           <button type="button" className="transcript-filter"><Users size={14} /><span>Everyone</span><ChevronDown size={13} /></button>
           <button type="button" className="icon-button small" aria-label="Transcript settings"><Settings2 size={15} /></button>
         </div>
-        <div className="transcript-feed">
+        <div className="transcript-feed" aria-live="polite">
+          {error && <p role="alert">{error}</p>}
+          {!loaded && !error && <p>Loading existing transcript…</p>}
+          {loaded && transcript.length === 0 && <p>Start recording to capture your conversation.</p>}
           <div className="transcript-date"><span />TODAY<span /></div>
           {transcript.map((line, index) => (
-            <article className={`transcript-line ${index === transcript.length - 1 && recording === 'recording' ? 'currently-speaking' : ''}`} key={`${line.person}-${line.time}`}>
+            <article className={`transcript-line ${index === transcript.length - 1 && recording === 'recording' ? 'currently-speaking' : ''}`} key={index}>
               <span className={`speaker-avatar ${line.initials === 'LL' ? 'avatar-self' : line.initials === 'AC' ? 'avatar-one' : line.initials === 'GC' ? 'avatar-two' : 'avatar-three'}`}>{line.initials}</span>
               <div className="transcript-line-content"><div className="speaker-meta"><strong>{line.person}</strong><time>{line.time}</time></div><p>{line.text}</p></div>
             </article>
           ))}
           {recording === 'recording' && <div className="transcript-capture"><span className="capture-avatar">···</span><span>Listening for the next thought</span><span className="capture-pulse" /></div>}
         </div>
-        <div className="transcript-footer"><button type="button" className="transcript-export"><FileText size={14} /><span>Export transcript</span><ChevronDown size={13} /></button><span className="transcript-private">Only visible to participants</span></div>
+        <div className="transcript-footer"><button type="button" className="transcript-export" onClick={exportTranscript}><FileText size={14} /><span>Export transcript</span><ChevronDown size={13} /></button><span className="transcript-private">Only visible to participants</span></div>
       </aside>
       {transcriptOpen && <button type="button" className="mobile-scrim" onClick={() => setTranscriptOpen(false)} aria-label="Close transcript panel" />}
     </div>

@@ -48,6 +48,7 @@ class TranscriptStore:
         self.path = path
         self._lock = asyncio.Lock()
         self._active_sessions = 0
+        self._content = ""
 
     async def _io(self, operation: Callable[[], T]) -> T:
         async with self._lock:
@@ -57,6 +58,7 @@ class TranscriptStore:
         def initialize():
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self.path.touch(exist_ok=True)
+            self._content = self.path.read_text(encoding="utf-8")
 
         await self._io(initialize)
 
@@ -77,26 +79,24 @@ class TranscriptStore:
         with self.path.open("a", encoding="utf-8") as output:
             output.write(line)
             output.flush()
+        self._content += line
 
     async def append(self, line: str) -> None:
         await self._io(lambda: self._append(line))
 
     async def read(self) -> str:
-        def read():
-            try:
-                return self.path.read_text(encoding="utf-8")
-            except FileNotFoundError:
-                return ""
-
-        return await self._io(read)
+        async with self._lock:
+            return self._content
 
     async def clear(self) -> bool:
         async with self._lock:
             if self._active_sessions:
                 return False
-            await complete_before_cancel(
-                asyncio.to_thread(self.path.write_text, "", encoding="utf-8")
-            )
+            def clear():
+                self.path.write_text("", encoding="utf-8")
+                self._content = ""
+
+            await complete_before_cancel(asyncio.to_thread(clear))
             return True
 
 
