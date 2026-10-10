@@ -1,3 +1,5 @@
+import { useLayoutEffect, useRef, useState } from 'react'
+
 /** Abstract artwork inspired by the brand's scalloped silhouettes. */
 export function BrandShape({ variant }: { variant: number }) {
   const stacked = variant % 2 === 1
@@ -22,13 +24,32 @@ export function AbstractSymbol({ className = '' }: { className?: string }) {
 }
 
 export function RecordingShape({ active }: { active: boolean }) {
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [width, setWidth] = useState(448)
+
+  useLayoutEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    const observer = new ResizeObserver(([entry]) => {
+      setWidth(Math.max(1, entry.contentRect.width))
+    })
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [])
+
+  const diameter = 64
+  const count = Math.max(1, Math.ceil(width / diameter))
+  const step = count > 1 ? (width - diameter) / (count - 1) : 0
+
   return (
     <div className={`recording-visual ${active ? 'is-recording' : ''}`}>
-      <svg viewBox="0 0 160 56" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <svg ref={svgRef} viewBox={`0 0 ${width} 56`} preserveAspectRatio="none" aria-hidden="true" focusable="false">
         <g className="recording-lobes">
-          {[12, 34, 56, 80, 104, 126, 148].map((x, index) => (
-            <ellipse key={x} cx={x} cy="28" rx="12" ry={[10, 17, 22, 27, 22, 17, 10][index]} style={{ animationDelay: `${index * -0.13}s` }} />
-          ))}
+          {Array.from({ length: count }, (_, index) => {
+            const position = count > 1 ? index / (count - 1) : 0.5
+            const height = 10 + 17 * (1 - Math.abs(position * 2 - 1))
+            return <ellipse key={index} cx={count > 1 ? diameter / 2 + index * step : width / 2} cy="28" rx={diameter / 2} ry={height} style={{ animationDelay: `${index * -0.13}s` }} />
+          })}
         </g>
       </svg>
       <span>{active ? 'Listening' : 'Ready to record'}</span>
