@@ -350,27 +350,6 @@
 .idea-page h1 { margin: 0; font-size: var(--text-title); letter-spacing: -0.03em; }
 .idea-page p { white-space: pre-wrap; line-height: 1.8; color: #52525b; }
 .idea-title-button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.info-banner {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-  padding: 6px 38px;
-  border: 1px solid #cbdff6;
-  border-radius: 8px;
-  background: #eff6ff;
-  color: #285580;
-  font-size: var(--text-body);
-  line-height: 1.5;
-}
-.info-banner-content { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; text-align: center; }
-.info-banner-content > svg { flex-shrink: 0; }
-.info-banner-content > span { min-width: 0; overflow-wrap: anywhere; }
-.banner-spinner { animation: banner-spin 1s linear infinite; }
-@keyframes banner-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .banner-spinner { animation: none; } }
-.info-banner button { display: grid; flex-shrink: 0; width: 22px; height: 22px; padding: 0; place-items: center; color: inherit; background: transparent; border: 0; cursor: pointer; }
 .breadcrumb { min-width: 0; overflow: hidden; }
 .breadcrumb strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) {
