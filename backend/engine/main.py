@@ -53,6 +53,13 @@ class ChunkIdeas(BaseModel):
     ideas: list[IdeaUpdate]
 
 
+def init_ideas(ideas_path: Path) -> None:
+    ideas_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with ideas_path.open("x", encoding="utf-8") as output:
+            json.dump({"ideas": []}, output)
+    except FileExistsError:
+        pass
 def reset_topic(topic_path: Path) -> None:
     topic_path.parent.mkdir(parents=True, exist_ok=True)
     topic_path.write_text("")
@@ -68,6 +75,25 @@ def publish(topic_path: Path, messages: list[dict]) -> None:
         os.close(fd)
 
 
+def save_ideas(ideas: list[dict], ideas_path: Path) -> None:
+    # Write to a temp file and rename, so readers never see a half-written file.
+    tmp_path = ideas_path.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps({"ideas": ideas}, indent=4, ensure_ascii=False))
+    os.replace(tmp_path, ideas_path)
+
+
+def file_identity(path: Path) -> tuple[int, int]:
+    stat = path.stat()
+    return stat.st_dev, stat.st_ino
+
+
+def read_transcript(path: Path) -> tuple[tuple[int, int], str]:
+    # Read identity from the open file so a concurrent Reset cannot mix generations.
+    with path.open(encoding="utf-8", errors="replace") as source:
+        stat = os.fstat(source.fileno())
+        text = source.read()
+    # Direct file readers must wait for a complete newline-terminated batch.
+    return (stat.st_dev, stat.st_ino), text[:text.rfind("\n") + 1]
 def to_message(idea_id: str, idea: dict) -> dict:
     return {"id": idea_id, "title": idea["title"], "short-summary": idea["summary"]}
 
@@ -140,6 +166,7 @@ def main(
     request_timeout_s: float,
 ) -> None:
     load_dotenv(REPO_ROOT / ".env")
+    model = os.getenv("GEMINI_MODEL") or model
     client = genai.Client(
         api_key=os.environ["GEMINI_API_KEY"],
         http_options=types.HttpOptions(timeout=int(request_timeout_s * 1000)),
@@ -148,6 +175,10 @@ def main(
         "engine started · model %s · chunk %d chars · poll %.1fs · retries %d · timeout %gs",
         model, chunk_chars, poll_interval_s, max_retries, request_timeout_s,
     )
+    init_ideas(ideas_path)
+    transcript_path.parent.mkdir(parents=True, exist_ok=True)
+    transcript_path.touch(exist_ok=True)
+    logger.info("using existing ideas in %s", ideas_path)
 
     def start_session() -> None:
         # Each session starts fresh: subscribers see the topics shrink and reset themselves.
@@ -158,11 +189,25 @@ def main(
     start_session()
     ideas: dict[str, dict] = {}
     offset = 0
+    identity = None
+    previous_length = 0
+    last_text_at = time.monotonic()
     chunk_number = 1
     last_waiting_chars = None
     while True:
         time.sleep(poll_interval_s)
         try:
+            current_identity, text = read_transcript(transcript_path)
+            if current_identity != identity:
+                identity = current_identity
+                offset = 0
+                previous_length = 0
+                last_text_at = time.monotonic()
+                logger.info("transcript replaced · reading from the beginning")
+            if len(text) != previous_length:
+                previous_length = len(text)
+                last_text_at = time.monotonic()
+            pending = text[offset:]
             transcript = transcript_path.read_text(errors="replace")
             if len(transcript) < offset:
                 # The transcriber cleared the transcript: a new recording is a new session.
@@ -171,6 +216,8 @@ def main(
                 ideas, offset, chunk_number = {}, 0, 1
             pending = transcript[offset:]
             chunk = cut_chunk(pending, chunk_chars)
+            if chunk is None and pending and time.monotonic() - last_text_at >= 10:
+                chunk = pending
             if chunk is None:
                 # Log only when the pending count changes, to keep idle ticks quiet.
                 if len(pending) != last_waiting_chars:
@@ -183,16 +230,15 @@ def main(
                 "chunk #%d · %s · offset %s → %s",
                 chunk_number, plural(len(chunk), "char"), f"{offset:,}", f"{offset + len(chunk):,}",
             )
-            updates = extract_ideas(client, model, ideas, chunk, max_retries)
-            merged_ideas, touched_ids = merge_ideas(ideas, updates)
+            updates = extract_ideas(client, model, load_ideas(ideas_path), chunk, max_retries)
 
-            # Publish idea updates first, so the frontend knows an idea before enrichment does.
-            publish(idea_updates_path, [to_message(idea_id, merged_ideas[idea_id]) for idea_id in touched_ids])
-            publish(
-                classified_chunks_path,
-                [{"chunk": chunk, "ideas": [to_message(idea_id, merged_ideas[idea_id]) for idea_id in touched_ids]}],
-            )
-            logger.info("  published · %s touched · %s total", plural(len(touched_ids), "idea"), plural(len(merged_ideas), "idea"))
+            # Re-read right before writing to keep edits made by enrichment during the API call.
+            merged_ideas = merge_ideas(load_ideas(ideas_path), updates)
+            if file_identity(transcript_path) != identity:
+                logger.info("discarded response · source transcript was reset")
+                continue
+            save_ideas(merged_ideas, ideas_path)
+            logger.info("  saved · %s total", plural(len(merged_ideas), "idea"))
 
             ideas = merged_ideas
             offset += len(chunk)
