@@ -1,0 +1,70 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4K06TN3Q1DS8BZRG5W5RKY5",
+  "session_id": "5ddfb9fe-18eb-4b9b-ac1d-ae1e66709565",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T13:32:00.967333Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "save_step_count": 1,
+  "files_touched": [
+    "backend/transcriber/README.md",
+    "backend/transcriber/batching.py",
+    "backend/transcriber/tests/test_batching.py"
+  ],
+  "agent": "Antigravity",
+  "model": "",
+  "turn_id": "1712e6df11ad",
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T13:32:00.965178Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 243,
+    "human_modified": 10,
+    "human_removed": 0,
+    "total_committed": 243,
+    "total_lines_changed": 309,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 2829,
+      "user_lines_removed": 24,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".gitignore": 8,
+        "AGENTS.md": 30,
+        "backend/transcriber/.env.example": 7,
+        "backend/transcriber/README.md": 116,
+        "backend/transcriber/batching.py": 164,
+        "backend/transcriber/demo_client.py": 212,
+        "backend/transcriber/main.py": 151,
+        "backend/transcriber/pyproject.toml": 12,
+        "backend/transcriber/session.py": 123,
+        "backend/transcriber/tests/helpers.py": 126,
+        "backend/transcriber/tests/test_batching.py": 168,
+        "backend/transcriber/tests/test_manual_client.py": 77,
+        "backend/transcriber/tests/test_session.py": 289,
+        "backend/transcriber/uv.lock": 1285,
+        "frontend/README.md": 61
+      },
+      "user_removed_per_file": {
+        ".gitignore": 2,
+        "frontend/README.md": 22
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2829,
+      "agent_lines_removed": 24
+    }
+  ]
+}
