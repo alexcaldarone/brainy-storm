@@ -341,3 +341,34 @@
 .transcript-options summary::-webkit-details-marker { display: none; }
 .transcript-options-menu { position: absolute; z-index: 5; top: calc(100% + 8px); right: 0; width: 170px; padding: 5px; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px #18181b14; }
 .transcript-options-menu .transcript-export { width: 100%; border: 0; }
+
+.folder-row { display: flex; align-items: center; border-radius: 6px; }
+.folder-row.active, .idea-nav-item.active { background: #ebebed; color: #18181b; }
+.folder-toggle { display: grid; place-items: center; flex: 0 0 24px; height: 34px; padding: 0; border: 0; background: transparent; color: #71717a; cursor: pointer; }
+.folder-row .session-item { flex: 1; padding-left: 2px; text-align: left; }
+.folder-row .session-item svg, .idea-nav-item svg { flex-shrink: 0; }
+.folder-ideas { margin: 2px 0 8px 31px; padding-left: 7px; border-left: 1px solid #e4e4e7; }
+.idea-nav-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 6px; border: 0; border-radius: 5px; background: transparent; color: #71717a; text-align: left; font-size: 11px; cursor: pointer; }
+.idea-nav-item:hover { background: #f0f0f2; }
+.idea-nav-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty-folder { padding: 6px; color: #a1a1aa; font-size: 10px; }
+.idea-page { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; }
+.idea-page h1 { margin: 0; font-size: 32px; letter-spacing: -0.03em; }
+.idea-page p { white-space: pre-wrap; line-height: 1.8; color: #52525b; }
+.idea-title-button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ideas-error { color: #71717a; font-size: 11px; margin-bottom: 16px; }
+.breadcrumb { min-width: 0; overflow: hidden; }
+.breadcrumb strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+  .app-shell { grid-template-columns: 165px minmax(0, 1fr); }
+  .session-search { display: flex; width: 100%; margin-bottom: 10px; }
+  .search-shortcut { display: none; }
+  .session-name { display: block; overflow: hidden; text-overflow: ellipsis; }
+  .folder-row .session-item { justify-content: flex-start; width: auto; gap: 5px; }
+  .folder-ideas { margin-left: 16px; }
+  .brainstorm-folder { width: 100%; }
+  .session-list { margin-top: 0; }
+  .idea-page h1 { font-size: 24px; overflow-wrap: anywhere; }
+  .recording-time { display: none; }
+  .recording-dock { flex-wrap: wrap; padding: 8px; }
+}

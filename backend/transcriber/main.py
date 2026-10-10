@@ -1,3 +1,4 @@
+import json
 import os
 import logging
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -90,6 +91,27 @@ async def get_transcript(request: Request):
     """Returns the full text currently saved in data/transcript.txt"""
     content = await request.app.state.transcript_store.read()
     return {"transcript": content}
+
+
+@app.get("/ideas")
+def get_ideas():
+    """Expose the engine's current brainstorm ideas (written atomically)."""
+    try:
+        data = json.loads((DATA_DIR / "ideas.json").read_text())
+        ideas = data["ideas"]
+        if not isinstance(ideas, list) or any(
+            not isinstance(idea, dict)
+            or not isinstance(idea.get("id"), int)
+            or not isinstance(idea.get("title"), str)
+            or not isinstance(idea.get("summary"), str)
+            for idea in ideas
+        ):
+            raise ValueError("Invalid ideas")
+        return {"ideas": ideas}
+    except FileNotFoundError:
+        return {"ideas": []}
+    except (OSError, ValueError, KeyError, TypeError):
+        raise HTTPException(status_code=503, detail="Ideas are temporarily unavailable")
 
 
 @app.post("/transcript/clear")
