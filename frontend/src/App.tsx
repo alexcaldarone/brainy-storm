@@ -217,11 +217,6 @@ function App() {
               {collaboratorActions}
             </div>
 
-            <div className="board-section-heading">
-              <div className="section-title"><AbstractSymbol /><h2>Ideas from the room</h2><span className="idea-count">{ideas.length}</span></div>
-              <button type="button" className="text-button sort-button">Recently added <ChevronDown size={14} /></button>
-            </div>
-
             {ideas.length > 0 ? (
               <div className="idea-grid">
                 {ideas.map((idea, index) => (
