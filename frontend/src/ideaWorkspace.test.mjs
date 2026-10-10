@@ -2,13 +2,14 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readWorkspace, mergeGeneratedIdeas } from './ideaWorkspace.ts'
 
-const idea = { id: 'engine-1', title: 'My title', summary: 'My notes\nSecond paragraph', tag: 'Next steps', votes: 3, pattern: 'orbit', locallyEdited: true }
+const idea = { id: 'engine-1', title: 'My title', summary: 'My notes\nSecond paragraph', tag: 'Next steps', votes: 3, pattern: 'orbit', thumbnail: '/ideas/1/artifacts/thumbnail.svg', locallyEdited: true }
 
 test('polling preserves edits and votes while adding incoming ideas', () => {
   const result = mergeGeneratedIdeas([idea], [{ id: 1, title: 'Server title', summary: 'Server summary' }, { id: 2, title: 'New idea', summary: 'New content' }])
   assert.equal(result[0].title, idea.title)
   assert.equal(result[0].summary, idea.summary)
   assert.equal(result[0].tag, idea.tag)
+  assert.equal(result[0].thumbnail, idea.thumbnail)
   assert.equal(result[0].votes, 3)
   assert.equal(result[1].title, 'New idea')
 })

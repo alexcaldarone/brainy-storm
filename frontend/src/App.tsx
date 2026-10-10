@@ -41,6 +41,12 @@ function InfoBanner({ message, role = 'status' }: { message: string; role?: 'sta
   return <div className="info-banner" role={role}><Info size={16} aria-hidden="true" /><span>{message}</span><button type="button" aria-label="Dismiss notification" onClick={() => setDismissed(true)}><X size={16} /></button></div>
 }
 
+function thumbnailUrl(thumbnail?: string | null) {
+  if (!thumbnail || /^(?:https?:|data:|blob:)/.test(thumbnail)) return thumbnail || ''
+  const base = (import.meta.env.VITE_IDEAS_URL || '/enrichment').replace(/\/$/, '')
+  return thumbnail.startsWith('/ideas/') ? `${base}${thumbnail}` : thumbnail
+}
+
 function App() {
   const [restored] = useState(() => {
     try { return readWorkspace(localStorage.getItem(workspaceKey)) } catch { return null }
@@ -255,6 +261,7 @@ function App() {
                   >
                     <div className={`idea-art art-${idea.pattern}`}>
                       <BrandShape variant={index % 6} />
+                      {idea.thumbnail && <img className="idea-thumbnail" src={thumbnailUrl(idea.thumbnail)} alt="" onError={event => { event.currentTarget.style.display = 'none' }} />}
                     </div>
                     <div className="idea-card-body">
                       <div className="idea-card-topline">{activeSession === 'Hackathon' && focusedIdeaId === idea.id && <span className="discussion-label">Discussing now</span>}<span className="idea-tag">{idea.tag}</span><button className="icon-button small" type="button" aria-label="Idea options"><MoreHorizontal size={17} /></button></div>

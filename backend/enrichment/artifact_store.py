@@ -1,5 +1,7 @@
 import html
+import hashlib
 import json
+import random
 import re
 from pathlib import Path
 from typing import Iterable, Optional
@@ -24,6 +26,19 @@ class IdeaArtifactStore:
     def record_for(self, idea_id: str) -> Path:
         return self.root / f"{self._safe_id(idea_id)}.json"
 
+    def ensure_thumbnail(self, idea: Idea) -> Path:
+        """Create a stable abstract thumbnail in milliseconds, without an LLM."""
+        folder = self.folder_for(idea.id)
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / "thumbnail.svg"
+        metadata_path = folder / "thumbnail.json"
+        seed_text = str(idea.metadata.get("thumbnail_seed") or idea.id)
+        svg, metadata = self._thumbnail_svg(seed_text)
+        self._write_text(target, svg)
+        self._write_json(metadata_path, metadata)
+        idea.thumbnail = f"/ideas/{idea.id}/artifacts/thumbnail.svg"
+        return target
+
     @staticmethod
     def _write_text(path: Path, value: str):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -40,6 +55,7 @@ class IdeaArtifactStore:
     def write(self, idea: Idea) -> Path:
         folder = self.folder_for(idea.id)
         folder.mkdir(parents=True, exist_ok=True)
+        self.ensure_thumbnail(idea)
 
         complete_record = idea.model_dump(exclude_none=False)
         self._write_json(self.record_for(idea.id), complete_record)
@@ -219,6 +235,78 @@ class IdeaArtifactStore:
             for line_index, line in enumerate(self._wrap(node.description, 38)[:2]):
                 body.append(f'<text x="{x + 18}" y="{y + 55 + line_index * 17}" class="small">{html.escape(line)}</text>')
         return self._svg_document(width, height, "\n".join(body), "System Architecture")
+
+    @staticmethod
+    def _thumbnail_svg(seed_text: str):
+        seed = int(hashlib.sha256(seed_text.encode("utf-8")).hexdigest()[:16], 16)
+        rng = random.Random(seed)
+        palettes = [
+            ("#ff7043", "#ffffff", "#ffe600"),
+            ("#99f6e4", "#050505", "#4054f9"),
+            ("#4054f9", "#ffffff", "#ff4b4b"),
+            ("#050505", "#4054f9", "#f26df9"),
+            ("#ffffff", "#9da51a", "#ff7043"),
+            ("#f26df9", "#050505", "#99f6e4"),
+            ("#050505", "#a83cff", "#ffe85a"),
+            ("#ffffff", "#ff4545", "#4054f9"),
+            ("#050505", "#ff7043", "#99f6e4"),
+            ("#ffffff", "#8ee8e3", "#ff4b4b"),
+        ]
+        background, foreground, accent = rng.choice(palettes)
+        shape = rng.choice(["hills", "waves", "arches", "stacked"])
+        canvas_width, canvas_height = 720, 360
+        baseline = rng.randint(135, 205)
+
+        if shape in {"hills", "arches"}:
+            count = rng.randint(3, 6)
+            width = canvas_width / count
+            commands = [f"M 0 {canvas_height} L 0 {baseline}"]
+            for index in range(count):
+                left = index * width
+                right = (index + 1) * width
+                peak = rng.randint(25, max(45, baseline - 40))
+                commands.append(
+                    f"Q {left + width / 2:.1f} {peak} {right:.1f} {baseline + rng.randint(-24, 28)}"
+                )
+            commands.extend([f"L {canvas_width} {canvas_height}", "Z"])
+            paths = [f'<path d="{" ".join(commands)}" fill="{foreground}"/>']
+        elif shape == "waves":
+            paths = []
+            for layer in range(3):
+                y = baseline + layer * 48
+                amplitude = rng.randint(22, 52)
+                paths.append(
+                    f'<path d="M -30 {y} Q 120 {y-amplitude} 270 {y} T 570 {y} T 870 {y} L 870 390 L -30 390 Z" fill="{foreground if layer == 2 else accent}" opacity="{0.55 + layer * 0.2}"/>'
+                )
+        else:
+            paths = []
+            for layer in range(5):
+                y = baseline + layer * 38
+                inset = rng.randint(8, 75)
+                paths.append(
+                    f'<ellipse cx="360" cy="{y}" rx="{360-inset}" ry="{rng.randint(25, 50)}" fill="{foreground}"/>'
+                )
+
+        dot_x = rng.randint(55, 665)
+        dot_y = rng.randint(45, 120)
+        dot_radius = rng.randint(10, 23)
+        svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{canvas_width}" height="{canvas_height}" viewBox="0 0 {canvas_width} {canvas_height}">
+<rect width="{canvas_width}" height="{canvas_height}" rx="16" fill="{background}"/>
+{"".join(paths)}
+<circle cx="{dot_x}" cy="{dot_y}" r="{dot_radius}" fill="{accent}"/>
+</svg>'''
+        return svg, {
+            "generator": "deterministic-abstract-v1",
+            "seed": seed_text,
+            "shape": shape,
+            "palette": {
+                "background": background,
+                "foreground": foreground,
+                "accent": accent,
+            },
+            "width": canvas_width,
+            "height": canvas_height,
+        }
 
     @staticmethod
     def _wrap(text: str, length: int) -> Iterable[str]:

@@ -1,4 +1,10 @@
-export type GeneratedIdea = { id: string | number; title: string; summary: string; is_currently_discussed?: boolean }
+export type GeneratedIdea = {
+  id: string | number
+  title: string
+  summary: string
+  thumbnail?: string | null
+  is_currently_discussed?: boolean
+}
 
 export type Idea = {
   id: string
@@ -7,6 +13,7 @@ export type Idea = {
   tag: string
   votes: number
   pattern: string
+  thumbnail?: string | null
   locallyEdited?: boolean
 }
 export type Session = { name: string; date: string; ideas: number }
@@ -18,7 +25,7 @@ export function readWorkspace(raw: string | null): Workspace | null {
     const data = JSON.parse(raw || 'null')
     if (!data || !Array.isArray(data.sessions) || !data.sessionIdeas || typeof data.sessionIdeas !== 'object' || Array.isArray(data.sessionIdeas)) return null
     if (!data.sessions.every((s: Session) => s && typeof s.name === 'string' && typeof s.date === 'string' && typeof s.ideas === 'number')) return null
-    if (!Object.values(data.sessionIdeas).every(ideas => Array.isArray(ideas) && ideas.every(idea => idea && ['id', 'title', 'summary', 'tag', 'pattern'].every(key => typeof idea[key] === 'string') && typeof idea.votes === 'number'))) return null
+    if (!Object.values(data.sessionIdeas).every(ideas => Array.isArray(ideas) && ideas.every(idea => idea && ['id', 'title', 'summary', 'tag', 'pattern'].every(key => typeof idea[key] === 'string') && typeof idea.votes === 'number' && (idea.thumbnail == null || typeof idea.thumbnail === 'string')))) return null
     return data as Workspace
   } catch { return null }
 }
@@ -29,6 +36,7 @@ export function mergeGeneratedIdeas(current: Idea[], incoming: GeneratedIdea[]):
     return {
       ...idea, id: `engine-${idea.id}`, tag: 'From the conversation', votes: previous?.votes || 0,
       pattern: ['orbit', 'grid', 'signal'][index % 3],
+      thumbnail: idea.thumbnail ?? previous?.thumbnail,
       ...(previous?.locallyEdited ? { title: previous.title, summary: previous.summary, tag: previous.tag, locallyEdited: true } : {}),
     }
   })

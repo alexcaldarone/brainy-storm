@@ -96,7 +96,16 @@ class StorageManager:
             self._write_ideas_sync(ideas)
             return idea
 
+    async def materialize_all(self) -> int:
+        """Refresh all per-idea files, including stable thumbnails."""
+        async with _storage_lock:
+            ideas = self._read_ideas_sync()
+            self._write_ideas_sync(ideas)
+            return len(ideas)
+
     def _write_ideas_sync(self, ideas: List[Idea]):
+        for idea in ideas:
+            self.artifacts.ensure_thumbnail(idea)
         data = {
             "ideas": [idea.model_dump(exclude_none=False) for idea in ideas]
         }

@@ -248,6 +248,8 @@ organized folder at `data/ideas/<idea-id>/` containing, when available:
 ```text
 idea.json
 manifest.json
+thumbnail.svg
+thumbnail.json
 raw-body.txt
 transcript-segments.json
 summary.md
@@ -263,6 +265,12 @@ system-architecture.json
 system-architecture.mmd
 system-architecture.svg
 ```
+
+`thumbnail.svg` is generated locally in milliseconds from a stable seed based
+on the idea ID. It uses the frontend's bold abstract shape language, requires
+no model call, and remains unchanged when cards are reordered. The idea's
+`thumbnail` field contains its artifact URL; the frontend displays it and
+falls back to its built-in `BrandShape` if the file cannot be loaded.
 
 List or download them through the API:
 
