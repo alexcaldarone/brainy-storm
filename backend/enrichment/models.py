@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any, Literal
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 import uuid
 import time
 
@@ -36,26 +36,85 @@ class WorkflowEnrichment(BaseModel):
     generated_at: float = Field(default_factory=time.time)
 
 
+class ArchitectureNode(BaseModel):
+    id: str
+    label: str
+    description: str = ""
+    component_type: str = "service"
+
+
+class ArchitectureEdge(BaseModel):
+    source: str
+    target: str
+    label: str = ""
+
+
+class ArchitectureEnrichment(BaseModel):
+    summary: str = ""
+    nodes: List[ArchitectureNode] = Field(default_factory=list)
+    edges: List[ArchitectureEdge] = Field(default_factory=list)
+    mermaid_code: str = ""
+    image_prompt: str = ""
+    image_url: Optional[str] = None
+    generated_at: float = Field(default_factory=time.time)
+
+
+class ProConItem(BaseModel):
+    point: str
+    category: str = "General"
+    severity_or_impact: Literal["High", "Medium", "Low"] = "Medium"
+    source_context: str = ""
+
+
 class ProsConsEnrichment(BaseModel):
     model_config = ConfigDict(extra="allow")
     summary: Optional[str] = None
-    pros: List[str] = Field(default_factory=list)
-    cons: List[str] = Field(default_factory=list)
+    pros: List[ProConItem] = Field(default_factory=list)
+    cons: List[ProConItem] = Field(default_factory=list)
     key_risks: List[str] = Field(default_factory=list)
+    assumptions: List[str] = Field(default_factory=list)
     open_questions: List[str] = Field(default_factory=list)
     generated_at: float = Field(default_factory=time.time)
+
+    @field_validator("pros", "cons", mode="before")
+    @classmethod
+    def upgrade_legacy_string_items(cls, value):
+        if not isinstance(value, list):
+            return []
+        return [
+            {"point": item, "category": "General", "severity_or_impact": "Medium"}
+            if isinstance(item, str)
+            else item
+            for item in value
+        ]
+
+
+class TranscriptSegment(BaseModel):
+    """One idempotent piece of source transcript assigned to an idea."""
+
+    chunk_id: str
+    text: str
+    captured_at: float = Field(default_factory=time.time)
+    reason: Optional[str] = None
 
 
 class Idea(BaseModel):
     model_config = ConfigDict(extra="allow")
     id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
     title: str
+    short_summary: Optional[str] = Field(
+        default=None,
+        description="One-line upstream screening summary; not used as enrichment context",
+    )
     summary: str = ""
     transcript: Optional[str] = None
     raw_body: str = Field(
         default="",
         description="Cumulative transcript excerpts relevant to this idea; canonical enrichment context",
     )
+    transcript_segments: List[TranscriptSegment] = Field(default_factory=list)
+    content_version: int = Field(default=0, ge=0)
+    enriched_version: int = Field(default=0, ge=0)
     proponents: List[str] = Field(
         default_factory=list,
         description="Who supports the idea or arguments in favor"
@@ -70,7 +129,7 @@ class Idea(BaseModel):
     competitors: Optional[CompetitorEnrichment] = None
     workflow: Optional[WorkflowEnrichment] = None
     pros_cons: Optional[ProsConsEnrichment] = None
-    systemGraph: Optional[Dict[str, Any]] = None
+    systemGraph: Optional[ArchitectureEnrichment] = None
 
     # Execution State
     status: Literal["idle", "enriching", "enriched", "error"] = "idle"
@@ -109,9 +168,9 @@ class AutoEnrichRequest(BaseModel):
 class ManualEnrichRequest(BaseModel):
     idea_id: Optional[str] = None
     title: Optional[str] = None
-    service: Literal["competitors", "workflow", "pros_cons", "all"] = Field(
+    service: Literal["competitors", "workflow", "architecture", "pros_cons", "all"] = Field(
         ...,
-        description="Service/tool to run: 'competitors', 'workflow', 'pros_cons', or 'all'"
+        description="Service/tool to run: competitors, workflow, architecture, pros_cons, or all"
     )
     context: Optional[str] = Field(default=None, description="Optional extra context")
 
@@ -119,6 +178,7 @@ class ManualEnrichRequest(BaseModel):
 class IdeaCreateUpdateRequest(BaseModel):
     id: Optional[str] = None
     title: str
+    short_summary: Optional[str] = None
     summary: Optional[str] = None
     transcript: Optional[str] = None
     raw_body: Optional[str] = None
@@ -144,3 +204,79 @@ class IdeaIngestRequest(BaseModel):
         description="New full-session transcript or transcript delta to filter for this idea",
     )
     enrich: bool = True
+
+
+EnrichmentService = Literal[
+    "summary", "pros_cons", "workflow", "architecture", "competitors"
+]
+
+
+class RoutedIdeaMatch(BaseModel):
+    """Output from the upstream idea-recognition model for one idea."""
+
+    idea_id: str = Field(min_length=1)
+    is_new: bool = False
+    title: Optional[str] = None
+    short_summary: Optional[str] = None
+    relevant_excerpt: str = Field(min_length=1)
+    reason: Optional[str] = None
+    tools: Optional[List[EnrichmentService]] = Field(
+        default=None,
+        description=(
+            "Optional override. New ideas default to all tools; existing ideas "
+            "default to summary and pros_cons."
+        ),
+    )
+    expected_content_version: Optional[int] = Field(default=None, ge=0)
+
+
+class TranscriptChunkDispatchRequest(BaseModel):
+    """Submit one classified transcript chunk and all affected ideas."""
+
+    chunk_id: str = Field(min_length=1)
+    transcript: str = Field(min_length=1)
+    matches: List[RoutedIdeaMatch] = Field(min_length=1)
+    process_now: bool = Field(
+        default=False,
+        description="When true, wait while the submitted jobs are processed.",
+    )
+
+
+class ClassifiedIdeaReference(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+    id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    short_summary: Optional[str] = Field(default=None, alias="short-summary")
+
+
+class ClassifiedTranscriptChunk(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+    chunk: str = Field(min_length=1)
+    ideas: List[ClassifiedIdeaReference] = Field(default_factory=list)
+    chunk_id: Optional[str] = None
+    has_been_processed: bool = Field(default=False, alias="has_been_processsed")
+
+
+class ClassifiedChunksRequest(BaseModel):
+    chunks: List[ClassifiedTranscriptChunk]
+    process_now: bool = False
+
+
+class EnrichmentJob(BaseModel):
+    job_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    chunk_id: str
+    idea_id: str
+    is_new: bool
+    title: Optional[str] = None
+    short_summary: Optional[str] = None
+    relevant_excerpt: str
+    source_transcript: str
+    reason: Optional[str] = None
+    tools: List[EnrichmentService] = Field(default_factory=list)
+    expected_content_version: Optional[int] = None
+    status: Literal["queued", "running", "completed", "failed", "skipped"] = "queued"
+    created_at: float = Field(default_factory=time.time)
+    started_at: Optional[float] = None
+    completed_at: Optional[float] = None
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
