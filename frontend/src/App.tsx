@@ -17,12 +17,11 @@ import {
   Plus,
   Search,
   Share2,
-  Sparkles,
   Square,
   X,
 } from 'lucide-react'
-import repositoryIdeas from '../../data/ideas.json'
 import './App.css'
+import repositoryIdeas from '../../data/ideas.json'
 import { AbstractSymbol, BrandShape, RecordingShape } from './BrandShape'
 import { EditableIdea } from './EditableIdea'
 import { mergeGeneratedIdeas, readWorkspace, workspaceKey } from './ideaWorkspace'
@@ -56,7 +55,6 @@ function App() {
   }))
   const [expanded, setExpanded] = useState<string[]>(['Hackathon'])
   const [ideasError, setIdeasError] = useState('')
-  const [showActivityNote, setShowActivityNote] = useState(true)
   const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
   const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
   const ideas = sessionIdeas[activeSession] || []
@@ -148,6 +146,10 @@ function App() {
         <span className="member-avatar avatar-three">MH</span>
         <span className="member-more">+1</span>
       </div>
+      {!currentIdea && <div className="layout-picker" role="group" aria-label="Card layout">
+        <button type="button" aria-label="Horizontal layout" title="Horizontal layout" aria-pressed={layout === 'horizontal'} onClick={() => setLayout('horizontal')}><Columns3 size={16} /></button>
+        <button type="button" aria-label="Grid layout" title="Grid layout" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}><LayoutGrid size={16} /></button>
+      </div>}
       <button type="button" className="icon-button share-button" aria-label="Share session"><Share2 size={16} /></button>
       <button type="button" className="icon-button transcript-toggle" onClick={() => setTranscriptOpen(true)} aria-label="Open transcript"><AudioLines size={16} /></button>
     </div>
@@ -210,14 +212,13 @@ function App() {
         <section className={`board-scroll ${!currentIdea && layout === 'horizontal' ? 'horizontal-board' : ''}`}>
           <div className="board-content">
             {ideasError && <InfoBanner key={ideasError} message={ideasError} />}
-            {showActivityNote && <div className="activity-note"><Sparkles size={14} /><span>Ideas are grouped as your team explores the topic.</span><button type="button" aria-label="Dismiss note" onClick={() => setShowActivityNote(false)}><X size={14} /></button></div>}
+            <InfoBanner message="Ideas are grouped as your team explores the topic." />
             {currentIdea ? <article className="idea-page">
               <div className="idea-page-toolbar"><button type="button" className="text-button" onClick={() => setSelectedIdea(null)}>← Back to {activeSession}</button>{collaboratorActions}</div>
               <EditableIdea key={currentIdea.id} idea={currentIdea} storageError={storageError} onChange={fields => setIdeas(current => current.map(idea => idea.id === currentIdea.id ? { ...idea, ...fields, locallyEdited: true } : idea))} />
             </article> : <>
             <div className="board-heading-row">
               <div>
-                <div className="eyebrow"><span className="live-dot" /> LIVE BRAINSTORM <span className="eyebrow-divider">·</span> TODAY, 10:26 AM</div>
                 <h1>{activeSession}</h1>
               </div>
               {collaboratorActions}
@@ -225,10 +226,6 @@ function App() {
 
             <div className="board-layout-toolbar">
               <span>{ideas.length} ideas · {layout === 'horizontal' ? 'Newest on the right' : 'Grid view'}</span>
-              <div className="layout-picker" role="group" aria-label="Card layout">
-                <button type="button" aria-pressed={layout === 'horizontal'} onClick={() => setLayout('horizontal')}><Columns3 size={15} /> Horizontal</button>
-                <button type="button" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}><LayoutGrid size={15} /> Grid</button>
-              </div>
             </div>
             {ideas.length > 0 ? (
               <div className={`idea-grid ${layout === 'horizontal' ? 'idea-rail' : ''}`} tabIndex={0} role="region" aria-label="Ideas">
