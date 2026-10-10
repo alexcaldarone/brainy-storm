@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ArrowRight, Boxes, ExternalLink, GitBranch, Network } from 'lucide-react'
 import type { ArchitectureEnrichment, WorkflowEnrichment } from '../ideaWorkspace'
-import { MermaidDiagram } from './MermaidDiagram'
 
 type DiagramTab = 'workflow' | 'architecture'
 
@@ -33,8 +32,6 @@ export function DiagramsView({
       ? 'workflow'
       : requestedTab
 
-  const cleanId = ideaId?.replace(/^engine-/, '') || 'idea'
-  const workflowCode = workflow?.mermaid_code || workflow?.mermaidCode
   const workflowSvg = artifactUrl(ideaId, 'workflow.svg')
   const architectureSvg = artifactUrl(ideaId, 'system-architecture.svg')
 
@@ -84,13 +81,15 @@ export function DiagramsView({
             </div>
           )}
 
-          {workflowCode && (
+          {workflowSvg && (
             <div className="diagram-map-block">
               <div className="diagram-map-heading">
-                <span>Detailed workflow map</span>
-                {workflowSvg && <a href={workflowSvg} target="_blank" rel="noreferrer">Open SVG <ExternalLink size={11} /></a>}
+                <span>Generated workflow diagram</span>
+                <a href={workflowSvg} target="_blank" rel="noreferrer">Open SVG <ExternalLink size={11} /></a>
               </div>
-              <MermaidDiagram code={workflowCode} idPrefix={`wf-${cleanId}`} label="Detailed workflow diagram" />
+              <div className="static-diagram-frame">
+                <img src={workflowSvg} alt="Generated workflow diagram" />
+              </div>
             </div>
           )}
         </div>
@@ -115,13 +114,15 @@ export function DiagramsView({
             </div>
           )}
 
-          {systemGraph.mermaid_code && (
+          {architectureSvg && (
             <div className="diagram-map-block">
               <div className="diagram-map-heading">
-                <span>System map</span>
-                {architectureSvg && <a href={architectureSvg} target="_blank" rel="noreferrer">Open SVG <ExternalLink size={11} /></a>}
+                <span>Generated architecture diagram</span>
+                <a href={architectureSvg} target="_blank" rel="noreferrer">Open SVG <ExternalLink size={11} /></a>
               </div>
-              <MermaidDiagram code={systemGraph.mermaid_code} idPrefix={`arch-${cleanId}`} label="System architecture diagram" />
+              <div className="static-diagram-frame">
+                <img src={architectureSvg} alt="Generated system architecture diagram" />
+              </div>
             </div>
           )}
 

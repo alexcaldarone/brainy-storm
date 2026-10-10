@@ -1,102 +1,213 @@
-# Brainy Storm
+# {Tech: Europe} Zurich Agentic AI Hack
 
-A local brainstorming prototype: browser microphone → Gradium transcription → shared transcript → Gemini ideas → React idea board.
+<p align="center">
+  <a href="https://drive.google.com/file/d/1SAJt3qMT15nwZS-8X08hiZE9KjyscsY8/view"><strong>Watch the demo</strong></a>
+</p>
 
-## Run with Docker
+## What this is
 
-Install and start Docker Desktop, then configure your keys in the repository root:
+**Brainy Storm** is a shared workspace that turns a team's spoken brainstorming session into organized, evolving ideas. People stay in the conversation while AI handles transcription, idea tracking, summaries, arguments, competitor research, open questions, and system design.
 
-### Collaborators
+Each idea receives a stable ID and its own record containing the relevant transcript excerpts, current summary, categorized pros and cons, assumptions, open questions, competitors, workflow, system architecture, thumbnail, and generated artifacts.
 
-```bash
-cp .env.example .env
-# Edit .env: set GRADIUM_API_KEY and GEMINI_API_KEY.
-docker compose up --build
+## Why we built this
+
+We spent so much time trying to come up with ideas for this hackathon that the brainstorming process itself became our problem to solve.
+
+We kept moving between ideas, raising objections, checking whether something already existed, and circling back to earlier suggestions. Keeping track of all that took attention away from the discussion. We wanted a tool that could follow the conversation with us and preserve the useful parts as our thinking changed.
+
+So we built Brainy Storm: a brainstorming companion that helps a team remember what it considered, why an idea mattered, and what it still needs to decide.
+
+## Architecture
+
+The live loop is:
+
+```text
+Browser microphone
+  -> Gradium transcriber
+  -> data/transcript.txt
+  -> Gemini idea classifier
+  -> pubsub/classified-chunks.jsonl
+  -> enrichment router and queue
+  -> parallel Gemini enrichment agents
+  -> data/ideas.json + data/ideas/<idea-id>/
+  -> React idea board
 ```
 
-Open **http://localhost:5173** and allow microphone access. `GEMINI_MODEL` is optional; the existing default is `gemini-3.8-flash`. Use a model available to your API key if necessary.
+![Brainy Storm system diagram: audio flows through Gradium transcription into a transcript; the Gemini-powered engine and enrichment service maintain ideas for the frontend.](public/diagram.png)
 
-- **Start** captures your browser microphone and appends to the existing transcript.
-- **Stop** releases the microphone, receives final Gradium results for up to five seconds, and saves remaining text. Wait for **Saving…** to finish before starting again.
-- **Reset transcript** clears the transcript and elapsed time while stopped. Generated ideas stay on the board.
-- **Export transcript** downloads the persisted plain text, including all completed batches.
+### Main components
 
-Only one recording can run at a time. Everyone using the prototype shares one room; the sidebar's other brainstorms are still UI examples. Speech is labelled **Room**; speaker identification is not included.
+| Component | Responsibility |
+| --- | --- |
+| **Frontend — React, TypeScript, Vite** | Captures microphone audio, displays live captions and idea cards, polls enriched ideas, and presents editable notes and static generated diagrams. |
+| **Transcriber — Python, FastAPI, Gradium** | Receives browser audio over WebSocket, streams it to Gradium, returns captions, and persists transcript batches. |
+| **Idea engine — Python, Gemini** | Reads new transcript chunks, recognizes new and existing ideas, assigns stable IDs, and publishes classified chunk/idea pairs. |
+| **Enrichment API — Python, FastAPI, Gemini** | Stores ideas, exposes API and queue endpoints, and runs summary, pros/cons, workflow, architecture, and competitor agents. |
+| **Classified-chunk worker** | Tails JSONL, checkpoints its byte offset, and submits each chunk to the enrichment queue exactly once. |
+| **File storage** | Retains the raw transcript, aggregate idea database, per-idea JSON, Markdown, thumbnails, Mermaid source, and static SVG artifacts. |
 
-## Services and files
+### Agentic behavior
 
-Compose runs four containers: Vite/React, the single-worker Python transcriber, the Python engine, and the existing Node enrichment API. Only the frontend is published, at `127.0.0.1:5173`.
+- New idea IDs run the complete enrichment pipeline.
+- Existing ideas append only their relevant transcript excerpt.
+- The decision router always refreshes the summary and selects only downstream sections affected by new discussion.
+- Different ideas are processed concurrently; updates for the same idea remain FIFO.
+- Stable chunk IDs, transcript segments, and worker offsets prevent repeated processing.
+- Competitor research uses grounded search and stores its source URLs.
+- The frontend displays backend-generated static SVG workflow and architecture diagrams; browser-side interactive maps are intentionally disabled.
 
-The frontend uses Vite for the hackathon demo and mounts `./frontend`, so source edits reload immediately. Container dependencies live in their own volume, separate from your Mac/Linux `node_modules`. Startup runs `npm ci` against the current lockfile so a teammate's dependency changes are picked up after restarting the frontend. Backend source changes require `docker compose up --build` again.
+## Run the complete live demo locally
 
-All backend containers share `./data` at `/app/data`:
+### Prerequisites
 
-- `transcript.txt`: one plain-text line per nonempty five-second batch, plus the final partial batch on Stop. Starting or restarting never clears it. Direct readers must retain an incomplete trailing line until a later read.
-- `ideas.json`: generated ideas, initialized only if missing. Reset and container restarts preserve it.
+- Python 3.13 and [`uv`](https://docs.astral.sh/uv/)
+- Node.js 22
+- A browser with microphone permission
+- Gradium and Gemini API keys
 
-The engine polls every three seconds. It processes 500-character chunks, or a smaller chunk after ten seconds without new transcript text. Allow that idle delay plus Gemini response time for short recordings. Reset atomically replaces the transcript; the engine restarts its read offset and discards responses from the old file. On process restart the engine rereads the retained transcript using the existing ideas as context.
+Create `.env` in the repository root:
 
-The frontend polls the Node API for ideas every three seconds. Enrichment endpoints are available under `/api/enrichment/idea/*`, but enrichment is **not automatically invoked** and there are no enrichment buttons in this change. The alternative Python enrichment API is not part of Compose.
-
-Containers do not access the host microphone. The browser sends 24 kHz mono signed 16-bit PCM. Localhost supports microphone access; a remote deployment would need HTTPS and appropriate access control.
-
-## Operations
-
-```bash
-docker compose logs -f transcriber engine enricher
-docker compose ps
-docker compose down
+```dotenv
+GRADIUM_API_KEY=your_gradium_api_key
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.8-flash
 ```
 
-Stop recording before shutting down when possible. Attached Compose also stops with Ctrl+C; the transcriber has time to save received text. `docker compose down` leaves `./data` intact. A forced kill cannot recover text still held in memory.
+Never commit `.env`; it is ignored by Git.
 
-Health checks are local and do not call external providers:
+Install shared Python and frontend dependencies once:
 
 ```bash
-curl http://localhost:5173/api/transcriber/health
-curl http://localhost:5173/api/enrichment/health
+pip install -r requirements.txt
+cd frontend && npm ci && cd ..
 ```
 
-Keep real keys in `.env`; they are passed only to the appropriate backend containers and excluded from image builds. To use an isolated data directory, set `DATA_DIR=/absolute/path/to/data` when running Compose. Do not run another stack or local transcriber against the same files concurrently.
+Run each block in a separate Git Bash terminal from the repository root.
 
-## Local development
+### 1. Transcription server
 
-Use Python 3.13 with `uv`, and Node 22. In separate terminals, from the indicated folders:
+Port `8010` avoids conflicts with software commonly using port `8000`:
 
 ```bash
-# backend/transcriber (loads the root .env)
+cd /c/agentic_hackaton_zurich/tech-europe-agentic-hack/backend/transcriber
+TRANSCRIBER_PORT=8010 uv run python main.py
+```
+
+### 2. Gemini enrichment API
+
+```bash
+cd /c/agentic_hackaton_zurich/tech-europe-agentic-hack
+python -m uvicorn backend.enrichment.main:app --host 127.0.0.1 --port 8001 --reload
+```
+
+### 3. Gemini idea classifier
+
+```bash
+cd /c/agentic_hackaton_zurich/tech-europe-agentic-hack/backend/engine
 uv run python main.py
+```
 
-# backend/engine (loads the root .env)
-uv run python main.py
+### 4. Automatic enrichment router
 
-# backend/enrichment
-npm ci
-node --env-file=../../.env --import tsx server.ts
+```bash
+cd /c/agentic_hackaton_zurich/tech-europe-agentic-hack
+python -m backend.enrichment.classified_chunks_worker \
+  --file pubsub/classified-chunks.jsonl \
+  --interval 1
+```
 
-# frontend
-npm ci
+### 5. Frontend
+
+```bash
+cd /c/agentic_hackaton_zurich/tech-europe-agentic-hack/frontend
+TRANSCRIBER_TARGET=http://127.0.0.1:8010 \
+VITE_ENRICHMENT_URL=http://127.0.0.1:8001 \
 npm run dev
 ```
 
-Open http://localhost:5173. The same Vite configuration handles Docker and local development:
+Open **[http://127.0.0.1:5173](http://127.0.0.1:5173)** and allow microphone access.
 
-| Browser route | Internal destination |
-| --- | --- |
-| `/api/transcriber/*` | transcriber `/*`, port 8000, including WebSockets |
-| `/api/enrichment/*` | Node enrichment `/api/*`, port 3000 |
+## Try a brainstorming session
 
-Compose sets `TRANSCRIBER_TARGET` and `ENRICHMENT_TARGET` to Docker service names; local Vite defaults to localhost. Optional browser API-base overrides are `VITE_TRANSCRIBER_URL` and `VITE_ENRICHMENT_URL`; the default proxy routes need no frontend environment file.
+1. Click **Start** and speak about an idea for at least 15–20 seconds.
+2. Include what it does, how it works, potential benefits, concerns, competitors, and unresolved questions.
+3. Click **Stop** and wait for **Saving…** to finish.
+4. The engine processes approximately 500-character chunks, with a ten-second idle flush for smaller remainders.
+5. Allow roughly 30–90 seconds for the full new-idea pipeline. The idea card updates automatically without a browser refresh.
+6. Open the card to inspect its summary, pros and cons, open questions, competitors, workflow, architecture, and complete JSON.
 
-## Check the prototype
+The prototype has one shared recording room and supports one active recording at a time.
+
+## Health checks
+
+```bash
+# Local services
+curl http://127.0.0.1:8010/health
+curl http://127.0.0.1:8001/health
+
+# Same transcription route used by the browser
+curl http://127.0.0.1:5173/api/transcriber/transcript
+
+# Real Gemini request
+python -m backend.enrichment.ping_models --provider gemini
+curl -sS "http://127.0.0.1:8001/models/ping?provider=gemini" | python -m json.tool
+```
+
+## Test one complete enrichment directly
+
+```bash
+curl -sS -X POST \
+  http://127.0.0.1:8001/ideas/idea_pr_bot_01/enrich \
+  -H 'content-type: application/json' \
+  -d '{}' \
+  | python -m json.tool
+```
+
+This makes real Gemini and grounded-search calls and may take 30–90 seconds.
+
+## Data and artifacts
+
+```text
+data/
+├── transcript.txt
+├── ideas.json
+└── ideas/
+    └── <idea-id>/
+        ├── idea.json
+        ├── raw-body.txt
+        ├── transcript-segments.json
+        ├── summary.md
+        ├── pros-cons.json
+        ├── assumptions-open-questions.md
+        ├── competitors.json
+        ├── workflow.json
+        ├── workflow.svg
+        ├── system-architecture.json
+        ├── system-architecture.svg
+        └── thumbnail.svg
+```
+
+The aggregate database is `data/ideas.json`. Every completed save also materializes a frontend-ready per-idea record and artifact folder.
+
+## Verification
 
 ```bash
 cd frontend
-npm run build
 npm run lint
-# From the repository root, with .env configured:
-docker compose config --quiet
-docker compose build
+npm run build
+node --test src/ideaWorkspace.test.mjs
+
+cd ..
+python -m unittest discover -s backend/enrichment -p "test_*.py"
+
+cd backend/engine
+uv run python -m unittest test_focus -v
 ```
 
-For a smoke test, Start and speak for roughly twelve seconds. Check immediate captions and transcript lines near five and ten seconds, then Stop and check the final line. Wait for generated ideas. Start and Stop again to confirm appending, then Reset to confirm ideas stay. Restart the containers to confirm retained data remains.
+## Contributors
+
+- [Marko Haralović](https://github.com/MarkoHaralovic)
+- [Leonarda Lovrić](https://github.com/leonarda4)
+- [Giacomo Cirò](https://github.com/giacomo-ciro)
+- [Alex John Caldarone](https://github.com/alexcaldarone)

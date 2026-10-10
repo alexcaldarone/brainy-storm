@@ -1171,6 +1171,8 @@
 .diagram-map-heading a { display: inline-flex; align-items: center; gap: 5px; color: #4f46e5; font-size: 10.5px; text-decoration: none; text-transform: none; letter-spacing: 0; }
 .diagram-map-heading a:hover { color: #312e81; }
 .diagram-section-label { margin-bottom: 9px; color: #71717a; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+.static-diagram-frame { display: grid; min-height: 220px; place-items: center; padding: 20px; overflow: auto; background: #fff; }
+.static-diagram-frame img { display: block; max-width: 100%; height: auto; }
 
 .diagrams-panel .nodes-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 9px; }
 .diagrams-panel .component-node-card { align-items: flex-start; min-height: 110px; gap: 8px; padding: 13px; background: #fafafa; border-color: #e4e4e7; border-radius: 9px; }

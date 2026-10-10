@@ -1,6 +1,8 @@
+import hashlib
 import json
 import logging
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -14,7 +16,6 @@ from prompt import build_prompt
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-
 logger = logging.getLogger("engine")
 
 
@@ -33,7 +34,6 @@ def setup_logging() -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(LevelColorFormatter())
     logging.basicConfig(level=logging.INFO, handlers=[handler])
-    # Silence per-request lines from the HTTP client and the Gemini SDK.
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("google_genai").setLevel(logging.WARNING)
 
@@ -53,20 +53,14 @@ class ChunkIdeas(BaseModel):
     ideas: list[IdeaUpdate]
 
 
-def init_ideas(ideas_path: Path) -> None:
-    ideas_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with ideas_path.open("x", encoding="utf-8") as output:
-            json.dump({"ideas": []}, output)
-    except FileExistsError:
-        pass
 def reset_topic(topic_path: Path) -> None:
     topic_path.parent.mkdir(parents=True, exist_ok=True)
-    topic_path.write_text("")
+    topic_path.write_text("", encoding="utf-8")
 
 
 def publish(topic_path: Path, messages: list[dict]) -> None:
-    # One O_APPEND write per call, so concurrent publishers never interleave or lose lines.
+    if not messages:
+        return
     payload = "".join(json.dumps(message, ensure_ascii=False) + "\n" for message in messages)
     fd = os.open(topic_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
     try:
@@ -75,11 +69,72 @@ def publish(topic_path: Path, messages: list[dict]) -> None:
         os.close(fd)
 
 
-def save_ideas(ideas: list[dict], ideas_path: Path) -> None:
-    # Write to a temp file and rename, so readers never see a half-written file.
-    tmp_path = ideas_path.with_suffix(".json.tmp")
-    tmp_path.write_text(json.dumps({"ideas": ideas}, indent=4, ensure_ascii=False))
-    os.replace(tmp_path, ideas_path)
+def load_known_ideas(ideas_path: Path) -> dict[str, dict]:
+    try:
+        payload = json.loads(ideas_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    raw_ideas = payload.get("ideas", []) if isinstance(payload, dict) else payload
+    if not isinstance(raw_ideas, list):
+        return {}
+    known: dict[str, dict] = {}
+    for item in raw_ideas:
+        if not isinstance(item, dict) or not item.get("id") or not item.get("title"):
+            continue
+        known[str(item["id"])] = {
+            "title": str(item["title"]),
+            "summary": str(item.get("summary") or item.get("short_summary") or ""),
+        }
+    return known
+
+
+def merge_ideas(ideas: list[dict], updates: list[IdeaUpdate]) -> list[dict]:
+    """Merge classifier output for focused unit tests and lightweight consumers."""
+    merged = [{**idea, "is_currently_discussed": False} for idea in ideas]
+    by_id = {str(idea.get("id")): index for index, idea in enumerate(merged)}
+    focus_index: int | None = None
+    for update in updates:
+        index = by_id.get(str(update.id)) if update.id is not None else None
+        if index is None:
+            index = len(merged)
+            new_id: str | int = update.id if update.id is not None else index
+            merged.append({"id": new_id})
+            by_id[str(new_id)] = index
+        merged[index].update(
+            title=update.title,
+            summary=update.summary,
+            is_currently_discussed=False,
+        )
+        if update.is_currently_discussed:
+            focus_index = index
+    if focus_index is not None:
+        merged[focus_index]["is_currently_discussed"] = True
+    return merged
+
+
+def stable_idea_id(title: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")[:42] or "idea"
+    digest = hashlib.sha256(title.strip().lower().encode("utf-8")).hexdigest()[:8]
+    return f"idea_{slug}_{digest}"
+
+
+def resolve_updates(
+    known_ideas: dict[str, dict], updates: list[IdeaUpdate]
+) -> tuple[dict[str, dict], list[dict]]:
+    next_known = dict(known_ideas)
+    references: list[dict] = []
+    for update in updates:
+        idea_id = update.id if update.id in next_known else stable_idea_id(update.title)
+        next_known[idea_id] = {"title": update.title, "summary": update.summary}
+        references.append(
+            {
+                "id": idea_id,
+                "title": update.title,
+                "short-summary": update.summary,
+                "is_currently_discussed": update.is_currently_discussed,
+            }
+        )
+    return next_known, references
 
 
 def file_identity(path: Path) -> tuple[int, int]:
@@ -88,26 +143,19 @@ def file_identity(path: Path) -> tuple[int, int]:
 
 
 def read_transcript(path: Path) -> tuple[tuple[int, int], str]:
-    # Read identity from the open file so a concurrent Reset cannot mix generations.
     with path.open(encoding="utf-8", errors="replace") as source:
         stat = os.fstat(source.fileno())
         text = source.read()
-    # Direct file readers must wait for a complete newline-terminated batch.
-    return (stat.st_dev, stat.st_ino), text[:text.rfind("\n") + 1]
-def to_message(idea_id: str, idea: dict) -> dict:
-    return {"id": idea_id, "title": idea["title"], "short-summary": idea["summary"]}
+    newline = text.rfind("\n")
+    return (stat.st_dev, stat.st_ino), text[: newline + 1] if newline >= 0 else ""
 
 
 def cut_chunk(pending: str, chunk_chars: int) -> str | None:
     if len(pending) < chunk_chars:
         return None
-
-    # Cut back to the last whitespace so words are not split across chunks.
     chunk = pending[:chunk_chars]
     last_space = max(chunk.rfind(" "), chunk.rfind("\n"))
-    if last_space > 0:
-        chunk = chunk[: last_space + 1]
-    return chunk
+    return chunk[: last_space + 1] if last_space > 0 else chunk
 
 
 def extract_ideas(
@@ -122,41 +170,22 @@ def extract_ideas(
         response_schema=ChunkIdeas,
     )
     prompt = build_prompt(ideas, chunk)
-    logger.info("  → request · %s · %s", plural(len(ideas), "known idea"), plural(len(prompt), "prompt char"))
-
-    start = time.monotonic()
+    logger.info("  -> request · %s · %s", plural(len(ideas), "known idea"), plural(len(prompt), "prompt char"))
+    started = time.monotonic()
     for attempt in range(1, max_retries + 1):
         try:
             response = client.models.generate_content(model=model, contents=prompt, config=config)
             updates = ChunkIdeas.model_validate_json(response.text).ideas
-            logger.info("  ← response · %.1fs · %s", time.monotonic() - start, plural(len(updates), "idea"))
+            logger.info("  <- response · %.1fs · %s", time.monotonic() - started, plural(len(updates), "idea"))
             return updates
         except Exception as error:
             logger.warning("  ! attempt %d/%d failed · %s: %s", attempt, max_retries, type(error).__name__, error)
     raise RuntimeError(f"Gemini failed after {max_retries} attempts")
 
 
-def merge_ideas(ideas: dict[str, dict], updates: list[IdeaUpdate]) -> tuple[dict[str, dict], list[str]]:
-    merged = dict(ideas)
-    touched_ids = []
-
-    for update in updates:
-        if update.id in merged:
-            idea_id = update.id
-            logger.info("  ~ %s %s", idea_id, update.title)
-        else:
-            # Unknown ids are treated as new ideas.
-            idea_id = f"idea-{len(merged) + 1}"
-            logger.info("  + %s %s", idea_id, update.title)
-        merged[idea_id] = {"title": update.title, "summary": update.summary}
-        if idea_id not in touched_ids:
-            touched_ids.append(idea_id)
-
-    return merged, touched_ids
-
-
-def main(
+def run(
     transcript_path: Path,
+    ideas_path: Path,
     idea_updates_path: Path,
     classified_chunks_path: Path,
     model: str,
@@ -171,100 +200,84 @@ def main(
         api_key=os.environ["GEMINI_API_KEY"],
         http_options=types.HttpOptions(timeout=int(request_timeout_s * 1000)),
     )
-    logger.info(
-        "engine started · model %s · chunk %d chars · poll %.1fs · retries %d · timeout %gs",
-        model, chunk_chars, poll_interval_s, max_retries, request_timeout_s,
-    )
-    init_ideas(ideas_path)
     transcript_path.parent.mkdir(parents=True, exist_ok=True)
     transcript_path.touch(exist_ok=True)
-    logger.info("using existing ideas in %s", ideas_path)
+    logger.info("engine started · model %s · source %s", model, transcript_path)
 
-    def start_session() -> None:
-        # Each session starts fresh: subscribers see the topics shrink and reset themselves.
+    def start_session() -> dict[str, dict]:
         for topic_path in (idea_updates_path, classified_chunks_path):
             reset_topic(topic_path)
             logger.info("reset %s", topic_path.relative_to(REPO_ROOT))
+        return load_known_ideas(ideas_path)
 
-    start_session()
-    ideas: dict[str, dict] = {}
+    known_ideas = start_session()
     offset = 0
-    identity = None
+    identity: tuple[int, int] | None = None
     previous_length = 0
     last_text_at = time.monotonic()
     chunk_number = 1
-    last_waiting_chars = None
+    last_waiting_chars: int | None = None
+
     while True:
         time.sleep(poll_interval_s)
         try:
-            current_identity, text = read_transcript(transcript_path)
-            if current_identity != identity:
+            current_identity, transcript = read_transcript(transcript_path)
+            if current_identity != identity or len(transcript) < offset:
+                if identity is not None:
+                    logger.info("transcript replaced or reset · starting a new session")
+                    known_ideas = start_session()
                 identity = current_identity
                 offset = 0
                 previous_length = 0
                 last_text_at = time.monotonic()
-                logger.info("transcript replaced · reading from the beginning")
-            if len(text) != previous_length:
-                previous_length = len(text)
+                chunk_number = 1
+
+            if len(transcript) != previous_length:
+                previous_length = len(transcript)
                 last_text_at = time.monotonic()
-            pending = text[offset:]
-            transcript = transcript_path.read_text(errors="replace")
-            if len(transcript) < offset:
-                # The transcriber cleared the transcript: a new recording is a new session.
-                logger.info("transcript shrank below offset · starting a new session")
-                start_session()
-                ideas, offset, chunk_number = {}, 0, 1
             pending = transcript[offset:]
             chunk = cut_chunk(pending, chunk_chars)
             if chunk is None and pending and time.monotonic() - last_text_at >= 10:
                 chunk = pending
             if chunk is None:
-                # Log only when the pending count changes, to keep idle ticks quiet.
                 if len(pending) != last_waiting_chars:
                     logger.info("waiting · %d/%d new chars", len(pending), chunk_chars)
                     last_waiting_chars = len(pending)
                 continue
+
             last_waiting_chars = None
+            logger.info("chunk #%d · %s · offset %d -> %d", chunk_number, plural(len(chunk), "char"), offset, offset + len(chunk))
+            updates = extract_ideas(client, model, known_ideas, chunk, max_retries)
+            known_ideas, references = resolve_updates(known_ideas, updates)
 
-            logger.info(
-                "chunk #%d · %s · offset %s → %s",
-                chunk_number, plural(len(chunk), "char"), f"{offset:,}", f"{offset + len(chunk):,}",
-            )
-            updates = extract_ideas(client, model, load_ideas(ideas_path), chunk, max_retries)
-
-            # Re-read right before writing to keep edits made by enrichment during the API call.
-            merged_ideas = merge_ideas(load_ideas(ideas_path), updates)
             if file_identity(transcript_path) != identity:
                 logger.info("discarded response · source transcript was reset")
                 continue
-            save_ideas(merged_ideas, ideas_path)
-            logger.info("  saved · %s total", plural(len(merged_ideas), "idea"))
 
-            ideas = merged_ideas
+            chunk_seed = f"{identity[0]}:{identity[1]}:{offset}:".encode("utf-8") + chunk.encode("utf-8")
+            chunk_id = hashlib.sha256(chunk_seed).hexdigest()[:20]
+            publish(idea_updates_path, references)
+            publish(
+                classified_chunks_path,
+                [{"chunk_id": chunk_id, "chunk": chunk, "ideas": references}],
+            )
+            logger.info("  published · %s · %s", chunk_id, plural(len(references), "idea"))
             offset += len(chunk)
             chunk_number += 1
         except Exception as error:
-            logger.error("  ✗ tick failed, retrying chunk #%d next tick · %s: %s", chunk_number, type(error).__name__, error)
+            logger.error("  x tick failed, retrying chunk #%d · %s: %s", chunk_number, type(error).__name__, error)
 
 
 if __name__ == "__main__":
-    TRANSCRIPT_PATH = REPO_ROOT / "pubsub" / "transcript.txt"
-    IDEA_UPDATES_PATH = REPO_ROOT / "pubsub" / "idea-updates.jsonl"
-    CLASSIFIED_CHUNKS_PATH = REPO_ROOT / "pubsub" / "classified-chunks.jsonl"
-    MODEL = "gemini-3.8-flash"
-    CHUNK_CHARS = 500  # Characters consumed per Gemini call.
-    POLL_INTERVAL_S = 3.0
-    MAX_RETRIES = 3  # Attempts per Gemini call before giving up on the tick.
-    REQUEST_TIMEOUT_S = 30.0
-
     setup_logging()
-    main(
-        transcript_path=TRANSCRIPT_PATH,
-        idea_updates_path=IDEA_UPDATES_PATH,
-        classified_chunks_path=CLASSIFIED_CHUNKS_PATH,
-        model=MODEL,
-        chunk_chars=CHUNK_CHARS,
-        poll_interval_s=POLL_INTERVAL_S,
-        max_retries=MAX_RETRIES,
-        request_timeout_s=REQUEST_TIMEOUT_S,
+    run(
+        transcript_path=REPO_ROOT / "data" / "transcript.txt",
+        ideas_path=REPO_ROOT / "data" / "ideas.json",
+        idea_updates_path=REPO_ROOT / "pubsub" / "idea-updates.jsonl",
+        classified_chunks_path=REPO_ROOT / "pubsub" / "classified-chunks.jsonl",
+        model="gemini-3.8-flash",
+        chunk_chars=500,
+        poll_interval_s=3.0,
+        max_retries=3,
+        request_timeout_s=30.0,
     )

@@ -50,6 +50,7 @@ export function useTranscription() {
     const text = await readTranscript(signal)
     if (!mounted.current || request !== historyRequest.current) return
     setTranscript(text.split('\n').filter(line => line.trim()).map(line => transcriptLine(line)))
+    setError('')
     setLoaded(true)
   }
 
