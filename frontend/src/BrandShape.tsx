@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react'
-
 /** Abstract artwork inspired by the brand's scalloped silhouettes. */
 export function BrandShape({ variant }: { variant: number }) {
   const stacked = variant % 2 === 1
@@ -26,13 +24,10 @@ export function AbstractSymbol({ className = '' }: { className?: string }) {
 export function RecordingShape({ active }: { active: boolean }) {
   return (
     <div className={`recording-visual ${active ? 'is-recording' : ''}`}>
-      <svg viewBox="0 0 360 64" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <svg viewBox="0 0 160 56" preserveAspectRatio="none" aria-hidden="true" focusable="false">
         <g className="recording-lobes">
-          {Array.from({ length: 19 }, (_, index) => (
-            <ellipse key={index} cx={10 + index * 19} cy="32" rx="12" ry={14 + ((index * 13) % 18)} style={{
-              animationDelay: `${index * -0.19}s`, animationDuration: `${0.8 + ((index * 7) % 11) * 0.13}s`,
-              '--sway': `${index % 2 ? 3 : -3}px`,
-            } as CSSProperties} />
+          {[12, 34, 56, 80, 104, 126, 148].map((x, index) => (
+            <ellipse key={x} cx={x} cy="28" rx="12" ry={[10, 17, 22, 27, 22, 17, 10][index]} style={{ animationDelay: `${index * -0.13}s` }} />
           ))}
         </g>
       </svg>
