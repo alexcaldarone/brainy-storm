@@ -1,13 +1,60 @@
+export type CompetitorItem = {
+  name: string
+  summary?: string
+  differentiator?: string
+  idea?: string | null
+  yearOfFounding?: string | null
+  shortBio?: string | null
+  howWeDiffer?: string | null
+}
+
+export type CompetitorEnrichment = {
+  summary?: string | null
+  competitors: CompetitorItem[]
+  market_landscape?: string
+  our_positioning?: string
+  groundingSources?: string[]
+  generated_at?: number
+}
+
+export type ProConItem = {
+  point: string
+  category: string
+  severity_or_impact: 'High' | 'Medium' | 'Low' | string
+  source_context?: string
+}
+
+export type ProsConsEnrichment = {
+  summary?: string | null
+  pros: (ProConItem | string)[]
+  cons: (ProConItem | string)[]
+  key_risks?: string[]
+  assumptions?: string[]
+  generated_at?: number
+}
+
 export type GeneratedIdea = {
   id: string | number
   title: string
   summary: string
+  short_summary?: string | null
   thumbnail?: string | null
   is_currently_discussed?: boolean
+  transcript?: string | null
+  raw_body?: string | null
+  proponents?: string[]
+  opponents?: string[]
+  competitors?: CompetitorEnrichment | null
+  pros_cons?: ProsConsEnrichment | null
+  status?: string
+  metadata?: Record<string, any>
+  conclusion?: string | null
+  [key: string]: any
 }
 
-export type Idea = {
+export type Idea = GeneratedIdea & {
   id: string
+  originalId?: string
   title: string
   summary: string
   tag: string
@@ -15,6 +62,7 @@ export type Idea = {
   pattern: string
   thumbnail?: string | null
   locallyEdited?: boolean
+  rawIdea?: any
 }
 // One idea-updates.jsonl line: a partial idea from the engine or enrichment, keyed by id.
 type IdeaUpdateMessage = { id: string; 'short-summary'?: string; 'is-currently-discussed'?: boolean; [field: string]: unknown }
@@ -50,11 +98,16 @@ export function readWorkspace(raw: string | null): Workspace | null {
 }
 
 export function mergeGeneratedIdeas(current: Idea[], incoming: GeneratedIdea[]): Idea[] {
-  const merged = incoming.map((idea, index) => {
-    const previous = current.find(entry => entry.id === `engine-${idea.id}`)
+  const merged: Idea[] = incoming.map((idea, index) => {
+    const previous = current.find(entry => entry.id === `engine-${idea.id}` || entry.id === String(idea.id))
     return {
-      ...idea, id: `engine-${idea.id}`, tag: 'From the conversation', votes: previous?.votes || 0,
-      pattern: ['orbit', 'grid', 'signal'][index % 3],
+      ...idea,
+      rawIdea: idea,
+      id: `engine-${idea.id}`,
+      originalId: String(idea.id),
+      tag: previous?.tag || 'From the conversation',
+      votes: previous?.votes || 0,
+      pattern: previous?.pattern || ['orbit', 'grid', 'signal'][index % 3],
       thumbnail: idea.thumbnail ?? previous?.thumbnail,
       ...(previous?.locallyEdited ? { title: previous.title, summary: previous.summary, tag: previous.tag, locallyEdited: true } : {}),
     }

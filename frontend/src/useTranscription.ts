@@ -1,23 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 
-export type TranscriptLine = { time: string; text: string }
-type Status = 'stopped' | 'connecting' | 'recording' | 'saving'
+type Status = 'stopped' | 'connecting' | 'recording' | 'paused' | 'saving'
 const base = (import.meta.env.VITE_TRANSCRIBER_URL || '/api/transcriber').replace(/\/$/, '')
 
-function transcriptLine(text: string, time = ''): TranscriptLine {
-  return { time, text }
-}
-
 export function useTranscription() {
-  const [transcript, setTranscript] = useState<TranscriptLine[]>([])
+  const [transcript, setTranscript] = useState('')
   const [recording, setRecording] = useState<Status>('stopped')
-  const [resetting, setResetting] = useState(false)
   const [error, setError] = useState('')
   const [loaded, setLoaded] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const resources = useRef<{ stream?: MediaStream; context?: AudioContext; node?: AudioWorkletNode; socket?: WebSocket }>({})
   const busy = useRef(false)
   const mounted = useRef(true)
+  const stopTarget = useRef<Status>('stopped')
   const stopping = useRef(false)
   const historyRequest = useRef(0)
   const readyTimer = useRef<number | undefined>(undefined)
@@ -39,18 +34,20 @@ export function useTranscription() {
   }
 
   async function readTranscript(signal = AbortSignal.timeout(8000)) {
-    const response = await fetch(`${base}/transcript`, { signal, cache: 'no-store' })
+    const response = await fetch('/api/pubsub/transcript.txt', { signal, cache: 'no-store' })
     if (!response.ok) throw new Error('Could not load the persisted transcript.')
-    const data = await response.json() as { transcript: string }
-    return data.transcript
+    return await response.text()
   }
 
   async function loadTranscript(signal?: AbortSignal) {
     const request = ++historyRequest.current
     const text = await readTranscript(signal)
     if (!mounted.current || request !== historyRequest.current) return
-    setTranscript(text.split('\n').filter(line => line.trim()).map(line => transcriptLine(line)))
+    // One continuous stream: the file's batch lines are joined like live captions.
+    const formatted = text.split('\n').map(line => line.trim()).filter(Boolean).join(' ')
+    setTranscript(current => (current === formatted ? current : formatted))
     setLoaded(true)
+    setError(current => (current.startsWith('Backend unavailable:') ? '' : current))
   }
 
   function cleanupRecording() {
@@ -77,6 +74,16 @@ export function useTranscription() {
   }, [])
 
   useEffect(() => {
+    if (recording !== 'stopped') return
+    const interval = window.setInterval(() => {
+      if (!stopping.current) {
+        void loadTranscript().catch(() => {})
+      }
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [recording])
+
+  useEffect(() => {
     if (recording !== 'recording') return
     const timer = window.setInterval(() => setElapsedSeconds(value => value + 1), 1000)
     return () => window.clearInterval(timer)
@@ -92,8 +99,9 @@ export function useTranscription() {
     if (mounted.current) { setError(message); setRecording('stopped') }
   }
 
-  function stopRecording() {
+  function stopRecording(pause = false) {
     if (stopping.current) return
+    stopTarget.current = pause ? 'paused' : 'stopped'
     stopping.current = true
     releaseAudio()
     window.clearTimeout(readyTimer.current)
@@ -166,7 +174,7 @@ export function useTranscription() {
             node.connect(context.destination)
             setRecording('recording')
           } else if (message.type === 'transcript') {
-            setTranscript(current => [...current, transcriptLine(message.text, message.timestamp)])
+            setTranscript(current => current ? `${current} ${message.text}` : message.text)
           } else if (message.type === 'error') {
             failed = true
             setError(message.message || 'Transcription failed.')
@@ -196,7 +204,7 @@ export function useTranscription() {
           setError(`Recording saved, but reload failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
         } finally {
           busy.current = false
-          if (mounted.current) setRecording('stopped')
+          if (mounted.current) setRecording(stopTarget.current)
         }
       }
     } catch (err) {
@@ -204,27 +212,25 @@ export function useTranscription() {
     }
   }
 
-  async function resetTranscript() {
-    if (busy.current) return false
-    busy.current = true
-    setResetting(true)
-    setError('')
-    ++historyRequest.current
-    try {
-      const response = await fetch(`${base}/transcript/reset`, { method: 'POST', signal: AbortSignal.timeout(8000) })
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.detail || 'Could not reset transcript.')
-      }
-      if (mounted.current) { setTranscript([]); setElapsedSeconds(0); setLoaded(true) }
-      return true
-    } catch (err) {
-      if (mounted.current) setError(err instanceof Error ? err.message : 'Could not reset transcript.')
-      return false
-    } finally {
-      busy.current = false
-      if (mounted.current) setResetting(false)
+  async function resetMemory() {
+    const socket = resources.current.socket
+    if (socket && socket.readyState !== WebSocket.CLOSED) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error('Recording is still saving. Please wait and retry.')), 20000)
+        socket.addEventListener('close', event => {
+          window.clearTimeout(timeout)
+          if (event.code === 1000) resolve()
+          else reject(new Error('Recording did not finish saving. Download your memory before retrying.'))
+        }, { once: true })
+        stopRecording(true)
+      })
     }
+    const response = await fetch(`${base}/transcript/reset`, { method: 'POST', signal: AbortSignal.timeout(8000) })
+    if (!response.ok) throw new Error('Could not clear memory. Please retry once the backend is available and all recordings have stopped.')
+    setTranscript('')
+    setElapsedSeconds(0)
+    setLoaded(true)
+    setRecording('stopped')
   }
 
   async function exportTranscript() {
@@ -241,5 +247,5 @@ export function useTranscription() {
     }
   }
 
-  return { transcript, recording, resetting, error, loaded, elapsedSeconds, startRecording, stopRecording, resetTranscript, exportTranscript }
+  return { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, resetMemory, exportTranscript }
 }
