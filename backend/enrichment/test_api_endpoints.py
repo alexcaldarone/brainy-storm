@@ -113,6 +113,10 @@ class EnrichmentApiEndpointTest(unittest.IsolatedAsyncioTestCase):
                     },
                 )
                 self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(
+                    response.json()["thumbnail"],
+                    "/ideas/api-idea/artifacts/thumbnail.svg",
+                )
 
                 response = await client.get("/ideas/api-idea")
                 self.assertEqual(response.status_code, 200)
@@ -134,7 +138,8 @@ class EnrichmentApiEndpointTest(unittest.IsolatedAsyncioTestCase):
                 artifact_names = {item["name"] for item in response.json()["files"]}
                 self.assertTrue({
                     "idea.json", "summary.md", "pros-cons.md", "competitors.md",
-                    "workflow.svg", "system-architecture.svg", "manifest.json",
+                    "workflow.svg", "system-architecture.svg", "thumbnail.svg",
+                    "thumbnail.json", "manifest.json",
                 }.issubset(artifact_names))
                 response = await client.get("/ideas/api-idea/artifacts/pros-cons.md")
                 self.assertEqual(response.status_code, 200)
