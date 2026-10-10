@@ -43,7 +43,7 @@
     "Dave (DevOps / Infrastructure): Raised critical objections regarding 300% runner cost spikes and 5-minute container cold starts (conditionally appeased by diff filtering and cached snapshots).",
     "Elena (CISO / Security): Strongly challenged IP exposure to third-party APIs, hallucinated dependencies, and SOC2 liability (conditionally appeased by human GPG signing and an append-only audit vault)."
   ],
-  "thumbnail": null,
+  "thumbnail": "/ideas/idea_pr_bot_01/artifacts/thumbnail.svg",
   "competitors": {
     "summary": "Existing market solutions are primarily divided between advisory AI review bots that post comments without verification and static security linters that produce templated fixes. Our solution occupies the emerging agentic remediation niche by pairing closed-loop sandbox execution and test verification with enterprise governance (GPG sign-off and token-gating).",
     "competitors": [
