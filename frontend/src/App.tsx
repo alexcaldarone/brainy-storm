@@ -63,6 +63,7 @@ function App() {
   const { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, exportTranscript } = useTranscription()
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const transcriptFeedRef = useRef<HTMLDivElement>(null)
+  const discussedCardRef = useRef<HTMLElement | null>(null)
   const transitioning = recording === 'connecting' || recording === 'saving'
 
   useEffect(() => {
@@ -111,6 +112,19 @@ function App() {
   const matchesIdea = (idea: Idea) => `${idea.title} ${idea.summary}`.toLowerCase().includes(query)
   const visibleSessions = sessions.filter(session => session.name.toLowerCase().includes(query) || (sessionIdeas[session.name] || []).some(matchesIdea))
   const currentIdea = ideas.find(idea => idea.id === selectedIdea)
+
+  const visibleFocusedIdeaId = activeSession === 'Hackathon' && !currentIdea
+    ? ideas.find(idea => idea.id === focusedIdeaId)?.id
+    : undefined
+
+  useLayoutEffect(() => {
+    if (!visibleFocusedIdeaId) return
+    discussedCardRef.current?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    })
+  }, [visibleFocusedIdeaId, layout])
 
   const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')
   const seconds = String(elapsedSeconds % 60).padStart(2, '0')
@@ -224,14 +238,12 @@ function App() {
               {collaboratorActions}
             </div>
 
-            <div className="board-layout-toolbar">
-              <span>{ideas.length} ideas · {layout === 'horizontal' ? 'Newest on the right' : 'Grid view'}</span>
-            </div>
             {ideas.length > 0 ? (
               <div className={`idea-grid ${layout === 'horizontal' ? 'idea-rail' : ''}`} tabIndex={0} role="region" aria-label="Ideas">
                 {ideas.map((idea, index) => (
                   <article
                     key={idea.id}
+                    ref={visibleFocusedIdeaId === idea.id ? discussedCardRef : undefined}
                     className={`idea-card ${activeSession === 'Hackathon' && focusedIdeaId === idea.id ? 'discussion-focus' : ''}`}
                     onClick={() => setSelectedIdea(idea.id)}
                   >
