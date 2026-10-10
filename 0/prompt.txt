@@ -1,17 +1,1 @@
-try to make frontend use the backend with the transcript actually recording and the existing transcript should be in memory
-
----
-
-how do i do that
-
----
-
-done
-
----
-
-done
-
----
-
 can you run it now? also the recording panel on the bottom is missing
