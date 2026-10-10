@@ -57,8 +57,6 @@ h1, h2, h3, .wordmark, .empty-board strong,
 .shape-3 .shape-ink { fill: var(--brand-orange); }
 .shape-4 .shape-ink { fill: var(--brand-yellow); }
 .shape-5 .shape-ink { fill: var(--brand-purple); }
-.art-index { top: 10px; left: 10px; padding: 4px 6px; color: #fff; background: #171717; border-radius: 3px; }
-.save-idea { opacity: 1; color: #171717; background: #fff; border-color: #e5e5e5; }
 .idea-card h3 { color: #171717; font-size: 18px; font-weight: 500; line-height: 1.35; }
 .idea-card-body > p { color: #666; font-size: 12px; font-weight: 400; }
 .idea-tag { color: #666; background: #f5f5f5; font-size: 9px; }

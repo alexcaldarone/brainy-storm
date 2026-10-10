@@ -167,10 +167,6 @@
 .idea-card:hover { border-color: #c4c4ca; box-shadow: 0 7px 20px #18181b0b; transform: translateY(-2px); }
 .idea-card.selected { border-color: #71717a; box-shadow: 0 0 0 1px #71717a; }
 .idea-art { position: relative; display: grid; height: 136px; place-items: center; overflow: hidden; background-color: #f4f4f5; border-bottom: 1px solid #e4e4e7; }
-.art-index { position: absolute; top: 12px; left: 13px; z-index: 1; color: #71717a; font-size: 8px; font-weight: 700; letter-spacing: 0.1em; }
-.save-idea { position: absolute; z-index: 2; top: 8px; right: 8px; display: grid; width: 28px; height: 28px; place-items: center; color: #71717a; background: #ffffffb8; border: 1px solid #ffffff; border-radius: 6px; cursor: pointer; opacity: 0; transition: opacity 140ms ease, color 140ms ease, background 140ms ease; }
-.idea-card:hover .save-idea, .save-idea:focus-visible, .save-idea.saved { opacity: 1; }
-.save-idea:hover, .save-idea.saved { color: #18181b; background: #fff; }
 .art-orbit { background-image: linear-gradient(135deg, #f4f4f5 0%, #e8e8ea 58%, #f7f7f8 100%); }
 .orbit-shape { position: relative; display: block; width: 192px; height: 112px; border: 1px solid #b7b7bd; border-radius: 50%; transform: rotate(-20deg); }
 .orbit-shape::before, .orbit-shape::after { position: absolute; inset: 12px -13px; border: 1px solid #cacacf; border-radius: 50%; content: ''; transform: rotate(32deg); }
@@ -320,7 +316,6 @@
   .idea-art { height: 120px; }
   .idea-card-body > p { min-height: auto; }
   .add-idea-card { min-height: 130px; }
-  .save-idea { opacity: 1; }
   .recording-dock { flex: 0 0 67px; gap: 8px; margin: 0 0 9px; padding: 0 8px; }
   .recording-status { flex: 1; gap: 7px; }
   .recording-indicator { width: 25px; height: 25px; }

@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowDown,
   AudioLines,
-  Bookmark,
   ChevronDown,
   Clock3,
   Command,
@@ -59,7 +58,6 @@ function App() {
   const ideas = sessionIdeas[activeSession] || []
   const setIdeas = (update: (current: Idea[]) => Idea[]) => setSessionIdeas(current => ({ ...current, [activeSession]: update(current[activeSession] || []) }))
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
-  const [savedIdeas, setSavedIdeas] = useState<string[]>([])
   const { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, exportTranscript } = useTranscription()
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const transcriptFeedRef = useRef<HTMLDivElement>(null)
@@ -130,12 +128,6 @@ function App() {
     setIdeas((current) => [...current, nextIdea])
     setSelectedIdea(nextIdea.id)
     setExpanded(current => current.includes(activeSession) ? current : [...current, activeSession])
-  }
-
-  function toggleSaved(title: string) {
-    setSavedIdeas((current) =>
-      current.includes(title) ? current.filter((item) => item !== title) : [...current, title],
-    )
   }
 
   const collaboratorActions = (
@@ -230,15 +222,6 @@ function App() {
                     onClick={() => setSelectedIdea(idea.id)}
                   >
                     <div className={`idea-art art-${idea.pattern}`}>
-                      <span className="art-index">IDEA {String(index + 1).padStart(2, '0')}</span>
-                      <button
-                        type="button"
-                        className={`save-idea ${savedIdeas.includes(idea.title) ? 'saved' : ''}`}
-                        aria-label={savedIdeas.includes(idea.title) ? 'Unsave idea' : 'Save idea'}
-                        onClick={(event) => { event.stopPropagation(); toggleSaved(idea.title) }}
-                      >
-                        <Bookmark size={15} fill={savedIdeas.includes(idea.title) ? 'currentColor' : 'none'} />
-                      </button>
                       <BrandShape variant={index % 6} />
                     </div>
                     <div className="idea-card-body">
