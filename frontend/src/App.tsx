@@ -55,7 +55,6 @@ function App() {
   }))
   const [expanded, setExpanded] = useState<string[]>(['Hackathon'])
   const [ideasError, setIdeasError] = useState('')
-  const [showActivityNote, setShowActivityNote] = useState(true)
   const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
   const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
   const ideas = sessionIdeas[activeSession] || []
