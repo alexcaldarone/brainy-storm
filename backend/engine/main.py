@@ -43,9 +43,10 @@ def plural(count: int, noun: str) -> str:
 
 
 class IdeaUpdate(BaseModel):
-    id: int | None
+    id: int | str | None
     title: str
     summary: str
+    is_currently_discussed: bool = False
 
 
 class ChunkIdeas(BaseModel):
@@ -112,7 +113,10 @@ def extract_ideas(
 
 def merge_ideas(ideas: list[dict], updates: list[IdeaUpdate]) -> list[dict]:
     ideas_by_id = {idea["id"]: idea for idea in ideas}
-    next_id = max(ideas_by_id, default=0) + 1
+    next_id = max((key for key in ideas_by_id if isinstance(key, int)), default=0) + 1
+    for idea in ideas_by_id.values():
+        idea["is_currently_discussed"] = False
+    focused_id = None
 
     for update in updates:
         if update.id in ideas_by_id:
@@ -121,10 +125,14 @@ def merge_ideas(ideas: list[dict], updates: list[IdeaUpdate]) -> list[dict]:
             logger.info("  ~ #%d %s", update.id, update.title)
         else:
             # Unknown ids are treated as new ideas.
-            ideas_by_id[next_id] = {"id": next_id, "title": update.title, "summary": update.summary}
+            ideas_by_id[next_id] = {"id": next_id, "title": update.title, "summary": update.summary, "is_currently_discussed": False}
             logger.info("  + #%d %s", next_id, update.title)
             next_id += 1
+        if update.is_currently_discussed:
+            focused_id = update.id if update.id in ideas_by_id else next_id - 1
 
+    if focused_id is not None:
+        ideas_by_id[focused_id]["is_currently_discussed"] = True
     return list(ideas_by_id.values())
 
 

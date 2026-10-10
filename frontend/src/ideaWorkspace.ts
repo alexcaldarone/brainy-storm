@@ -1,4 +1,4 @@
-export type GeneratedIdea = { id: string | number; title: string; summary: string }
+export type GeneratedIdea = { id: string | number; title: string; summary: string; is_currently_discussed?: boolean }
 
 export type Idea = {
   id: string
@@ -32,6 +32,10 @@ export function mergeGeneratedIdeas(current: Idea[], incoming: GeneratedIdea[]):
       ...(previous?.locallyEdited ? { title: previous.title, summary: previous.summary, tag: previous.tag, locallyEdited: true } : {}),
     }
   })
-  const ids = new Set(merged.map(idea => idea.id))
-  return [...merged, ...current.filter(idea => !ids.has(idea.id) && (!idea.id.startsWith('engine-') || idea.locallyEdited))]
+  const updates = new Map(merged.map(idea => [idea.id, idea]))
+  const existingIds = new Set(current.map(idea => idea.id))
+  return [
+    ...current.filter(idea => updates.has(idea.id) || !idea.id.startsWith('engine-') || idea.locallyEdited).map(idea => updates.get(idea.id) || idea),
+    ...merged.filter(idea => !existingIds.has(idea.id)),
+  ]
 }

@@ -32,3 +32,14 @@ test('workspace round-trip retains multiline edits and manual sessions', () => {
 test('malformed storage safely falls back to an empty workspace', () => {
   for (const raw of [null, '{', '{}', '{"sessions":[null],"sessionIdeas":{}}', '{"sessions":[],"sessionIdeas":{"x":[{}]}}']) assert.equal(readWorkspace(raw), null)
 })
+
+test('new ideas append after manual cards and polling never reorders existing cards', () => {
+  const manual = { ...idea, id: 'manual-1' }
+  const incoming = [
+    { id: 2, title: 'Newest', summary: '' },
+    { id: 1, title: 'Original', summary: '' },
+  ]
+  const result = mergeGeneratedIdeas([idea, manual], incoming)
+  assert.deepEqual(result.map(i => i.id), ['engine-1', 'manual-1', 'engine-2'])
+  assert.deepEqual(mergeGeneratedIdeas(result, incoming).map(i => i.id), result.map(i => i.id))
+})

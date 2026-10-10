@@ -21,6 +21,10 @@ Your task is to find every idea discussed in the chunk and report it.
 - Ignore small talk, logistics and filler that contain no idea.
 - If the chunk contains no idea at all, return an empty list.
 
+Current discussion focus:
+- Set `is_currently_discussed` to true on at most ONE returned idea: the idea being discussed at the END of the chunk, even if it is an existing idea with no new details.
+- Set it to false on all other ideas. If the conversation has moved to logistics, small talk, or no identifiable idea, all values must be false.
+
 Writing style:
 
 - `title`: at most 6 words, no trailing punctuation.

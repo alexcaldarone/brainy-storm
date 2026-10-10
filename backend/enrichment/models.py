@@ -47,10 +47,11 @@ class ProsConsEnrichment(BaseModel):
 
 
 class Idea(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", coerce_numbers_to_str=True)
     id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
     title: str
     summary: str = ""
+    is_currently_discussed: bool = False
     transcript: Optional[str] = None
     proponents: List[str] = Field(
         default_factory=list,

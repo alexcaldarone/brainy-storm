@@ -399,3 +399,21 @@
   .sidebar-bottom .profile-row { width: 100%; justify-content: flex-start; }
   .sidebar-bottom .profile-copy { display: grid; }
 }
+
+.board-layout-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; color: #737373; font-size: 11px; }
+.layout-picker { display: flex; gap: 3px; padding: 3px; background: #f5f5f5; border: 1px solid #e5e5e5; border-radius: 8px; }
+.layout-picker button { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border: 0; border-radius: 5px; background: transparent; color: #737373; cursor: pointer; font: inherit; }
+.layout-picker button[aria-pressed="true"] { color: #171717; background: white; box-shadow: 0 1px 3px #00000012; }
+.horizontal-board { overflow: hidden; }
+.horizontal-board .board-content { display: flex; flex-direction: column; height: 100%; max-width: none; min-height: 0; box-sizing: border-box; }
+.horizontal-board .board-content > :not(.idea-rail) { flex-shrink: 0; }
+.idea-grid.idea-rail { display: flex; flex: 1; min-height: 0; overflow-x: auto; overflow-y: hidden; gap: 16px; padding: 3px 3px 12px; scroll-snap-type: x proximity; }
+.idea-rail > .idea-card, .idea-rail > .add-idea-card { flex: 0 0 320px; min-width: 300px; min-height: 0; height: 100%; box-sizing: border-box; scroll-snap-align: start; overflow-y: auto; }
+.idea-rail > .idea-card { display: flex; flex-direction: column; }
+.idea-rail .idea-art { flex-shrink: 0; }
+.idea-rail .idea-card-body { flex: 1; display: flex; flex-direction: column; }
+.idea-rail .idea-card-footer { margin-top: auto; }
+.idea-rail .idea-card-body > p { padding-bottom: 16px; }
+.idea-card.discussion-focus, .idea-card.discussion-focus:hover { border: 2px solid #6860d8; box-shadow: 0 0 0 1px #6860d822; }
+.idea-card-topline { flex-wrap: wrap; gap: 4px; }
+.discussion-label { width: 100%; color: #6258c9; font-size: 10px; font-weight: 600; }

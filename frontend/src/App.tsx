@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowDown,
+  Columns3,
+  LayoutGrid,
   AudioLines,
   ChevronDown,
   Clock3,
@@ -55,6 +57,8 @@ function App() {
   const [expanded, setExpanded] = useState<string[]>(['Hackathon'])
   const [ideasError, setIdeasError] = useState('')
   const [showActivityNote, setShowActivityNote] = useState(true)
+  const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
+  const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
   const ideas = sessionIdeas[activeSession] || []
   const setIdeas = (update: (current: Idea[]) => Idea[]) => setSessionIdeas(current => ({ ...current, [activeSession]: update(current[activeSession] || []) }))
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
@@ -85,12 +89,18 @@ function App() {
         const base = (import.meta.env.VITE_IDEAS_URL || '/enrichment').replace(/\/$/, '')
         const response = await fetch(`${base}/ideas`, { signal: controller.signal })
         if (!response.ok) throw new Error('Could not load generated ideas.')
-        const data = await response.json() as GeneratedIdea[]
+        const payload = await response.json() as GeneratedIdea[] | { ideas: GeneratedIdea[] }
+        const data = Array.isArray(payload) ? payload : payload.ideas
         if (controller.signal.aborted) return
         setSessionIdeas(current => ({ ...current, Hackathon: mergeGeneratedIdeas(current.Hackathon || [], data) }))
+        const focused = data.find(idea => idea.is_currently_discussed)
+        setFocusedIdeaId(focused ? `engine-${focused.id}` : null)
         setIdeasError('')
       } catch {
-        if (!controller.signal.aborted) setIdeasError('Showing saved ideas. Live updates are unavailable; retrying…')
+        if (!controller.signal.aborted) {
+          setFocusedIdeaId(null)
+          setIdeasError('Showing saved ideas. Live updates are unavailable; retrying…')
+        }
       } finally {
         if (!controller.signal.aborted) timer = setTimeout(refresh, 3000)
       }
@@ -197,7 +207,7 @@ function App() {
       </aside>
 
       <main className="main-column">
-        <section className="board-scroll">
+        <section className={`board-scroll ${!currentIdea && layout === 'horizontal' ? 'horizontal-board' : ''}`}>
           <div className="board-content">
             {ideasError && <InfoBanner key={ideasError} message={ideasError} />}
             {showActivityNote && <div className="activity-note"><Sparkles size={14} /><span>Ideas are grouped as your team explores the topic.</span><button type="button" aria-label="Dismiss note" onClick={() => setShowActivityNote(false)}><X size={14} /></button></div>}
@@ -213,19 +223,26 @@ function App() {
               {collaboratorActions}
             </div>
 
+            <div className="board-layout-toolbar">
+              <span>{ideas.length} ideas · {layout === 'horizontal' ? 'Newest on the right' : 'Grid view'}</span>
+              <div className="layout-picker" role="group" aria-label="Card layout">
+                <button type="button" aria-pressed={layout === 'horizontal'} onClick={() => setLayout('horizontal')}><Columns3 size={15} /> Horizontal</button>
+                <button type="button" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}><LayoutGrid size={15} /> Grid</button>
+              </div>
+            </div>
             {ideas.length > 0 ? (
-              <div className="idea-grid">
+              <div className={`idea-grid ${layout === 'horizontal' ? 'idea-rail' : ''}`} tabIndex={0} role="region" aria-label="Ideas">
                 {ideas.map((idea, index) => (
                   <article
                     key={idea.id}
-                    className={`idea-card ${selectedIdea === idea.id ? 'selected' : ''}`}
+                    className={`idea-card ${activeSession === 'Hackathon' && focusedIdeaId === idea.id ? 'discussion-focus' : ''}`}
                     onClick={() => setSelectedIdea(idea.id)}
                   >
                     <div className={`idea-art art-${idea.pattern}`}>
                       <BrandShape variant={index % 6} />
                     </div>
                     <div className="idea-card-body">
-                      <div className="idea-card-topline"><span className="idea-tag">{idea.tag}</span><button className="icon-button small" type="button" aria-label="Idea options"><MoreHorizontal size={17} /></button></div>
+                      <div className="idea-card-topline">{activeSession === 'Hackathon' && focusedIdeaId === idea.id && <span className="discussion-label">Discussing now</span>}<span className="idea-tag">{idea.tag}</span><button className="icon-button small" type="button" aria-label="Idea options"><MoreHorizontal size={17} /></button></div>
                       <h3><button type="button" className="idea-title-button" onClick={() => setSelectedIdea(idea.id)}>{idea.title || 'Untitled idea'}</button></h3>
                       <p>{idea.summary}</p>
                       <div className="idea-card-footer">
