@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import {
   Activity,
   Archive,
@@ -82,7 +82,13 @@ function App() {
   const [savedIdeas, setSavedIdeas] = useState<string[]>([])
   const { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, exportTranscript } = useTranscription()
   const [transcriptOpen, setTranscriptOpen] = useState(false)
+  const transcriptFeedRef = useRef<HTMLDivElement>(null)
   const transitioning = recording === 'connecting' || recording === 'saving'
+
+  useLayoutEffect(() => {
+    const feed = transcriptFeedRef.current
+    if (feed) feed.scrollTop = feed.scrollHeight
+  }, [transcript, transcriptOpen, recording])
 
   const visibleSessions = sessions.filter((session) =>
     session.name.toLowerCase().includes(search.toLowerCase()),
@@ -321,7 +327,7 @@ function App() {
             </div>
           </details>
         </div>
-        <div className="transcript-feed" aria-live="polite">
+        <div className="transcript-feed" ref={transcriptFeedRef} aria-live="polite">
           {error && <p role="alert">{error}</p>}
           {!loaded && !error && <p>Loading existing transcript…</p>}
           {loaded && transcript.length === 0 && <p>Start recording to capture your conversation.</p>}
