@@ -31,6 +31,9 @@ import { useTranscription } from './useTranscription'
 
 const initialSessions: Session[] = [
   { name: 'Hackathon', date: 'Today', ideas: repositoryIdeas.ideas.length },
+  { name: 'Agent onboarding', date: 'Yesterday', ideas: 8 },
+  { name: 'Community launch', date: 'Oct 08', ideas: 5 },
+  { name: 'A better daily standup', date: 'Oct 04', ideas: 3 },
 ]
 
 function InfoBanner({ message, role = 'status' }: { message: string; role?: 'status' | 'alert' }) {
@@ -41,7 +44,7 @@ function InfoBanner({ message, role = 'status' }: { message: string; role?: 'sta
 
 function thumbnailUrl(thumbnail?: string | null) {
   if (!thumbnail || /^(?:https?:|data:|blob:)/.test(thumbnail)) return thumbnail || ''
-  const base = (import.meta.env.VITE_IDEAS_URL || '/enrichment').replace(/\/$/, '')
+  const base = (import.meta.env.VITE_IDEAS_URL || import.meta.env.VITE_ENRICHMENT_URL || '/api/enrichment').replace(/\/$/, '')
   return thumbnail.startsWith('/ideas/') ? `${base}${thumbnail}` : thumbnail
 }
 
@@ -51,10 +54,9 @@ function App() {
   })
   const [storageError, setStorageError] = useState(false)
   const [sessions, setSessions] = useState(() => {
-    const candidates = restored?.sessions || initialSessions
-    return candidates
-      .filter(session => session.name === 'Hackathon' || Boolean(restored?.sessionIdeas[session.name]?.length))
-      .map(session => ({ ...session, ideas: restored?.sessionIdeas[session.name]?.length ?? session.ideas }))
+    const saved = restored?.sessions || []
+    const missingBoilerplates = initialSessions.filter(template => !saved.some(session => session.name === template.name))
+    return saved.length ? [...saved, ...missingBoilerplates] : initialSessions
   })
   const [activeSession, setActiveSession] = useState('Hackathon')
   const [search, setSearch] = useState('')
@@ -84,18 +86,6 @@ function App() {
     } catch { setStorageError(true) }
   }, [sessions, sessionIdeas])
 
-  useEffect(() => {
-    setSessions(current => {
-      const cleaned = current
-        .filter(session => session.name === 'Hackathon' || session.name === activeSession || Boolean(sessionIdeas[session.name]?.length))
-        .map(session => ({ ...session, ideas: sessionIdeas[session.name]?.length || 0 }))
-      const unchanged = cleaned.length === current.length && cleaned.every((session, index) => (
-        session.name === current[index].name && session.ideas === current[index].ideas
-      ))
-      return unchanged ? current : cleaned
-    })
-  }, [activeSession, sessionIdeas])
-
   useLayoutEffect(() => {
     const feed = transcriptFeedRef.current
     if (feed) feed.scrollTop = feed.scrollHeight
@@ -104,6 +94,7 @@ function App() {
   useEffect(() => {
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout>
+    let refreshDelay = 3000
     async function refresh() {
       try {
         const base = (import.meta.env.VITE_ENRICHMENT_URL || '/api/enrichment').replace(/\/$/, '')
@@ -116,13 +107,15 @@ function App() {
         const focused = data.find(idea => idea.is_currently_discussed)
         setFocusedIdeaId(focused ? `engine-${focused.id}` : null)
         setIdeasError('')
+        refreshDelay = 3000
       } catch {
         if (!controller.signal.aborted) {
+          refreshDelay = Math.min(refreshDelay * 2, 30000)
           setFocusedIdeaId(null)
           setIdeasError('Showing saved ideas. Live updates are unavailable; retrying…')
         }
       } finally {
-        if (!controller.signal.aborted) timer = setTimeout(refresh, 3000)
+        if (!controller.signal.aborted) timer = setTimeout(refresh, refreshDelay)
       }
     }
     void refresh()
@@ -173,6 +166,12 @@ function App() {
     setExpanded(current => current.includes(activeSession) ? current : [...current, activeSession])
   }
 
+  function openSession(name: string, ideaId: string | null = null) {
+    setActiveSession(name)
+    setSelectedIdea(ideaId)
+    setExpanded(current => current.includes(name) ? current : [...current, name])
+  }
+
   const collaboratorActions = (
     <div className="collaborator-actions">
       <div className="member-stack" aria-label="4 participants">
@@ -221,12 +220,12 @@ function App() {
                   <button type="button" className="folder-toggle" aria-label={`${open ? 'Collapse' : 'Expand'} ${session.name}`} aria-expanded={open} onClick={() => setExpanded(current => current.includes(session.name) ? current.filter(name => name !== session.name) : [...current, session.name])}>
                     {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                   </button>
-                  <button type="button" className="session-item" onClick={() => { setActiveSession(session.name); setSelectedIdea(null); setExpanded(current => current.includes(session.name) ? current : [...current, session.name]) }}>
+                  <button type="button" className="session-item" onClick={() => openSession(session.name)}>
                     {open ? <FolderOpen size={15} /> : <Folder size={15} />}<span className="session-name">{session.name}</span>
                   </button>
                 </div>
                 {open && <div className="folder-ideas">
-                  {children.map(idea => <button key={idea.id} type="button" className={`idea-nav-item ${activeSession === session.name && selectedIdea === idea.id ? 'active' : ''}`} aria-current={activeSession === session.name && selectedIdea === idea.id ? 'page' : undefined} title={idea.title} onClick={() => { setActiveSession(session.name); setSelectedIdea(idea.id) }}><AbstractSymbol /><span>{idea.title || 'Untitled idea'}</span></button>)}
+                  {children.map(idea => <button key={idea.id} type="button" className={`idea-nav-item ${activeSession === session.name && selectedIdea === idea.id ? 'active' : ''}`} aria-current={activeSession === session.name && selectedIdea === idea.id ? 'page' : undefined} title={idea.title} onClick={() => openSession(session.name, idea.id)}><AbstractSymbol /><span>{idea.title || 'Untitled idea'}</span></button>)}
                   {children.length === 0 && <p className="empty-folder">No ideas yet</p>}
                 </div>}
               </div>

@@ -3,6 +3,7 @@ import type { Idea } from './ideaWorkspace'
 import { AbstractSymbol } from './BrandShape'
 import { KeyConclusionCard } from './components/KeyConclusionCard'
 import { ProsConsView } from './components/ProsConsView'
+import { OpenQuestionsView } from './components/OpenQuestionsView'
 import { CompetitorsView } from './components/CompetitorsView'
 import { DiagramsView } from './components/DiagramsView'
 import { EnrichedJsonView } from './components/EnrichedJsonView'
@@ -177,6 +178,9 @@ export function EditableIdea({
 
       {/* 4. Pros & Cons identified from body (Categorized & Sorted) - Matches Image 1 */}
       <ProsConsView data={idea.pros_cons} />
+
+      {/* Questions remain visible independently of the pros/cons analysis. */}
+      <OpenQuestionsView questions={idea.pros_cons?.open_questions} />
 
       {/* 5. Competitors Discovered via Google Search - Matches Image 2 */}
       <CompetitorsView data={idea.competitors} />

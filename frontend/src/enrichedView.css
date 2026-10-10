@@ -1107,10 +1107,11 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 16px;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(14, 165, 233, 0.05));
-  border: 1px solid rgba(96, 165, 250, 0.32);
-  border-radius: 10px;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, #f5f7ff, #f0f9ff);
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(24, 24, 27, 0.05);
 }
 
 .open-questions-header {
@@ -1125,18 +1126,18 @@
   width: 34px;
   height: 34px;
   place-items: center;
-  color: #93c5fd;
-  background: rgba(59, 130, 246, 0.18);
+  color: #4338ca;
+  background: #e0e7ff;
   border-radius: 8px;
 }
 
-.open-questions-header h4 { margin: 0; color: #eff6ff; font-size: 14px; }
-.open-questions-header p { margin: 3px 0 0; color: #94a3b8; font-size: 11.5px; }
-.open-questions-count { display: grid; min-width: 27px; height: 27px; place-items: center; color: #bfdbfe; background: rgba(59, 130, 246, 0.16); border-radius: 999px; font-size: 11px; font-weight: 700; }
+.open-questions-header h3 { margin: 0; color: #18181b; font-size: 16px; }
+.open-questions-header p { margin: 3px 0 0; color: #71717a; font-size: 12px; }
+.open-questions-count { display: grid; min-width: 28px; height: 28px; place-items: center; color: #3730a3; background: #e0e7ff; border-radius: 999px; font-size: 11px; font-weight: 800; }
 .open-questions-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.open-questions-list li { display: grid; grid-template-columns: 24px 1fr; align-items: start; gap: 9px; padding: 10px 12px; color: #dbeafe; background: rgba(15, 23, 42, 0.58); border: 1px solid rgba(96, 165, 250, 0.14); border-radius: 7px; }
-.open-questions-list li > span { display: grid; width: 22px; height: 22px; place-items: center; color: #93c5fd; background: rgba(59, 130, 246, 0.14); border-radius: 50%; font-size: 10px; font-weight: 700; }
-.open-questions-list p { margin: 1px 0 0; color: inherit; font-size: 12.5px; line-height: 1.5; }
+.open-questions-list li { display: grid; grid-template-columns: 24px 1fr; align-items: start; gap: 10px; padding: 11px 13px; color: #3f3f46; background: rgba(255, 255, 255, 0.86); border: 1px solid #e0e7ff; border-radius: 8px; }
+.open-questions-list li > span { display: grid; width: 22px; height: 22px; place-items: center; color: #4338ca; background: #eef2ff; border-radius: 50%; font-size: 10px; font-weight: 800; }
+.open-questions-list p { margin: 1px 0 0; color: inherit; font-size: 12.5px; line-height: 1.55; }
 
 /* A quieter, light diagram surface keeps complex maps legible. */
 .diagrams-panel {

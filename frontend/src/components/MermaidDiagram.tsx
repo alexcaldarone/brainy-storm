@@ -24,18 +24,23 @@ export function MermaidDiagram({ code, idPrefix = 'mermaid', label = 'Diagram' }
   const [svg, setSvg] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [showRaw, setShowRaw] = useState(false)
+  const normalizedCode = code
+    ?.trim()
+    .replace(/^```(?:mermaid)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim()
 
   useEffect(() => {
     let isMounted = true
     const renderDiagram = async () => {
-      if (!code?.trim()) {
+      if (!normalizedCode) {
         setSvg('')
         setError(null)
         return
       }
       try {
         const id = `${idPrefix}-${Math.random().toString(36).substring(2, 9)}`
-        const result = await mermaid.render(id, code.trim())
+        const result = await mermaid.render(id, normalizedCode)
         if (isMounted) {
           setSvg(result.svg)
           setError(null)
@@ -50,9 +55,9 @@ export function MermaidDiagram({ code, idPrefix = 'mermaid', label = 'Diagram' }
     return () => {
       isMounted = false
     }
-  }, [code, idPrefix])
+  }, [normalizedCode, idPrefix])
 
-  if (!code?.trim()) return null
+  if (!normalizedCode) return null
 
   return (
     <div className="mermaid-container" aria-label={label}>
@@ -70,13 +75,13 @@ export function MermaidDiagram({ code, idPrefix = 'mermaid', label = 'Diagram' }
 
       {showRaw ? (
         <pre className="diagram-raw-pre">
-          <code>{code}</code>
+          <code>{normalizedCode}</code>
         </pre>
       ) : error ? (
         <div className="diagram-fallback">
           <p className="diagram-error-hint">Rendering fallback (syntax view):</p>
           <pre className="diagram-raw-pre">
-            <code>{code}</code>
+            <code>{normalizedCode}</code>
           </pre>
         </div>
       ) : (

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TrendingUp, ShieldAlert, ChevronDown, ChevronUp, AlertTriangle, HelpCircle, CheckCircle2, Scale } from 'lucide-react'
+import { TrendingUp, ShieldAlert, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, Scale } from 'lucide-react'
 import type { ProsConsEnrichment, ProConItem } from '../ideaWorkspace'
 
 function normalizeItem(item: ProConItem | string): ProConItem {
@@ -10,11 +10,10 @@ function normalizeItem(item: ProConItem | string): ProConItem {
 export function ProsConsView({ data }: { data?: ProsConsEnrichment | null }) {
   const [showExtended, setShowExtended] = useState(false)
 
-  if (!data || (!data.pros?.length && !data.cons?.length && !data.summary && !data.open_questions?.length)) return null
+  if (!data || (!data.pros?.length && !data.cons?.length && !data.summary)) return null
 
   const pros = (data.pros || []).map(normalizeItem)
   const cons = (data.cons || []).map(normalizeItem)
-  const openQuestions = data.open_questions || []
   const hasExtended = Boolean(data.key_risks?.length || data.assumptions?.length)
 
   return (
@@ -57,15 +56,6 @@ export function ProsConsView({ data }: { data?: ProsConsEnrichment | null }) {
           </div>
         </div>
       </div>
-
-      {openQuestions.length > 0 && <section className="open-questions-section" aria-labelledby="open-questions-heading">
-        <div className="open-questions-header">
-          <span className="open-questions-icon"><HelpCircle size={17} /></span>
-          <div><h4 id="open-questions-heading">Open Questions</h4><p>Decisions the team still needs to resolve.</p></div>
-          <span className="open-questions-count">{openQuestions.length}</span>
-        </div>
-        <ol className="open-questions-list">{openQuestions.map((question, index) => <li key={index}><span>{index + 1}</span><p>{question}</p></li>)}</ol>
-      </section>}
 
       {hasExtended && <div className="extended-governance-section">
         <button type="button" className="extended-toggle-button" onClick={() => setShowExtended(!showExtended)} aria-expanded={showExtended}>
