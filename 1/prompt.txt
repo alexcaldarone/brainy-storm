@@ -1,0 +1,13 @@
+# Context from my IDE setup:
+
+## Active file: backend/transcriber/.env
+
+## Open tabs:
+- .env: backend/transcriber/.env
+- .env copy.example: backend/transcriber/.env copy.example
+- .env.example: backend/transcriber/.env.example
+- session.py: backend/transcriber/session.py
+- AGENTS.md: AGENTS.md
+
+## My request:
+help me run this project and see if i have the latest version, im trying to try the frontend with the latest gradient transcript feature
