@@ -10,6 +10,7 @@ import {
   Folder,
   FolderOpen,
   ChevronRight,
+  Info,
   Lightbulb,
   MoreHorizontal,
   Play,
@@ -45,6 +46,10 @@ const initialSessions: Session[] = [
   { name: 'Community launch', date: 'Oct 08', ideas: 5 },
   { name: 'A better daily standup', date: 'Oct 04', ideas: 3 },
 ]
+
+function InfoBanner({ message, role = 'status' }: { message: string; role?: 'status' | 'alert' }) {
+  return <div className="info-banner" role={role}><Info size={16} aria-hidden="true" /><span>{message}</span></div>
+}
 
 function App() {
   const [sessions, setSessions] = useState(initialSessions)
@@ -194,7 +199,7 @@ function App() {
 
         <section className="board-scroll">
           <div className="board-content">
-            {ideasError && <p role="status" className="ideas-error">{ideasError}</p>}
+            {ideasError && <InfoBanner message={ideasError} />}
             {currentIdea ? <article className="idea-page">
               <button type="button" className="text-button" onClick={() => setSelectedIdea(null)}>← Back to {activeSession}</button>
               <FileText size={28} />
@@ -313,8 +318,8 @@ function App() {
           </details>
         </div>
         <div className="transcript-feed" ref={transcriptFeedRef} aria-live="polite">
-          {error && <p role="alert">{error}</p>}
-          {!loaded && !error && <p>Loading existing transcript…</p>}
+          {error && <InfoBanner message={error} role="alert" />}
+          {!loaded && !error && <InfoBanner message="Loading existing transcript…" />}
           {loaded && transcript.length === 0 && <p>Start recording to capture your conversation.</p>}
           <div className="transcript-date"><span />TODAY<span /></div>
           {transcript.map((line, index) => (

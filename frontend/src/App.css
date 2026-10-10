@@ -358,7 +358,21 @@
 .idea-page h1 { margin: 0; font-size: 32px; letter-spacing: -0.03em; }
 .idea-page p { white-space: pre-wrap; line-height: 1.8; color: #52525b; }
 .idea-title-button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.ideas-error { color: #71717a; font-size: 11px; margin-bottom: 16px; }
+.info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #cbdff6;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #285580;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.info-banner > svg { flex-shrink: 0; margin-top: 1px; }
+.info-banner > span { min-width: 0; overflow-wrap: anywhere; }
 .breadcrumb { min-width: 0; overflow: hidden; }
 .breadcrumb strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) {
