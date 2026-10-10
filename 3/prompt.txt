@@ -1,0 +1,1 @@
+try to make frontend use the backend with the transcript actually recording and the existing transcript should be in memory

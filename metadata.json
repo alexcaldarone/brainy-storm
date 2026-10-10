@@ -2,8 +2,7 @@
   "cli_version": "0.11.4",
   "checkpoint_id": "01M4K06TN3Q1DS8BZRG5W5RKY5",
   "strategy": "manual-commit",
-  "branch": "main",
-  "checkpoints_count": 9,
+  "checkpoints_count": 10,
   "files_touched": [
     "backend/transcriber/README.md",
     "backend/transcriber/batching.py",
@@ -33,14 +32,21 @@
       "compact_transcript": "/2/transcript.jsonl",
       "content_hash": "/2/content_hash.txt",
       "prompt": "/2/prompt.txt"
+    },
+    {
+      "metadata": "/3/metadata.json",
+      "transcript": "/3/full.jsonl",
+      "compact_transcript": "/3/transcript.jsonl",
+      "content_hash": "/3/content_hash.txt",
+      "prompt": "/3/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 45207,
+    "input_tokens": 91932,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 1059328,
-    "output_tokens": 4132,
-    "api_call_count": 34
+    "cache_read_tokens": 1774336,
+    "output_tokens": 10525,
+    "api_call_count": 54
   },
   "combined_attribution": {
     "calculated_at": "2026-10-10T13:32:01.137736Z",
