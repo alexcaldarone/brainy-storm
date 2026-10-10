@@ -3,7 +3,7 @@
  * Grounded with real-time Google Search to identify existing market players.
  * Returns: name, idea, year of founding/funding, short bio, and how we differ from them.
  */
-import { ai, GEMINI_MODEL } from '../geminiClient.js';
+import { getGeminiClient, GEMINI_MODEL } from '../geminiClient.js';
 import type { CompetitorAnalysis, CompetitorItem } from '../schemas.js';
 
 interface GroundingChunk {
@@ -60,7 +60,7 @@ Return only the JSON block.
   } = {};
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getGeminiClient().models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
       config: {

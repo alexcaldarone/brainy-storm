@@ -1,0 +1,36 @@
+{
+  "summary": null,
+  "competitors": [
+    {
+      "name": "Miro / Mural",
+      "summary": "Collaborative digital whiteboards with AI clustering and templates.",
+      "differentiator": "Focuses on static post-it canvas rather than real-time voice-driven agentic tool calling.",
+      "idea": null,
+      "yearOfFounding": null,
+      "shortBio": null,
+      "howWeDiffer": null
+    },
+    {
+      "name": "Otter.ai / Fireflies",
+      "summary": "Meeting transcription and summary bots.",
+      "differentiator": "Only records transcripts and summaries, does not synthesize ideas or spawn autonomous subagents.",
+      "idea": null,
+      "yearOfFounding": null,
+      "shortBio": null,
+      "howWeDiffer": null
+    },
+    {
+      "name": "Whimsical AI",
+      "summary": "AI mind mapping and flowcharts generated from text prompts.",
+      "differentiator": "Requires manual prompt typing rather than continuous conversational transcription.",
+      "idea": null,
+      "yearOfFounding": null,
+      "shortBio": null,
+      "howWeDiffer": null
+    }
+  ],
+  "market_landscape": "The market is split between passive meeting recorders and static whiteboards. An active agentic brainstorming companion creates a distinct new category.",
+  "our_positioning": "We position ourselves as an active AI co-founder during brainstorming: listening continuously, identifying distinct ideas, and autonomously dispatching research and workflow agents.",
+  "groundingSources": [],
+  "generated_at": 1791637741.706104
+}

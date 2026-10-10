@@ -2,7 +2,7 @@
  * Idea Summary Generation Agent
  * Distills the cumulative fullBody discussion and title into a crisp, high-impact executive summary.
  */
-import { ai, GEMINI_MODEL } from '../geminiClient.js';
+import { getGeminiClient, GEMINI_MODEL } from '../geminiClient.js';
 import { summaryResponseSchema } from '../schemas.js';
 
 export async function generateIdeaSummary(
@@ -22,7 +22,7 @@ ${fullBody}
 `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getGeminiClient().models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
       config: {

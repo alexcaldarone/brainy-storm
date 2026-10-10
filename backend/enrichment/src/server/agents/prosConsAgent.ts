@@ -3,7 +3,7 @@
  * Analyzes the fullBody conversation/discussion to identify, extract, categorize, and sort
  * all advantages (pros) and risks/objections (cons) raised by the team.
  */
-import { ai, GEMINI_MODEL } from '../geminiClient.js';
+import { getGeminiClient, GEMINI_MODEL } from '../geminiClient.js';
 import { prosConsResponseSchema, type ExtractedProsCons } from '../schemas.js';
 
 export async function extractAndSortProsCons(
@@ -39,7 +39,7 @@ INSTRUCTIONS:
   let parsed: ExtractedProsCons;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getGeminiClient().models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
       config: {

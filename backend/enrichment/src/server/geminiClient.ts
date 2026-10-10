@@ -5,17 +5,22 @@ import { GoogleGenAI } from '@google/genai';
 
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
-if (!process.env.GEMINI_API_KEY) {
-  console.warn(
-    '[GeminiClient] WARNING: GEMINI_API_KEY environment variable is not defined. Ensure it is configured in your environment or Secrets.'
-  );
-}
+let client: GoogleGenAI | undefined;
 
-export const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || '',
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Reading saved ideas and artifacts does not require a model API key.
+export function getGeminiClient(): GoogleGenAI {
+  if (client) return client;
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is required to generate new idea enrichment.');
+  }
+  client = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+  return client;
+}

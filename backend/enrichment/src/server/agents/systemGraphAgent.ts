@@ -3,7 +3,7 @@
  * Renders modern, high-craft 2D node-and-connector network graphs
  * matching modern whiteboard tools (white cards, clean icons, labeled bidirectional arrows, tech grid).
  */
-import { ai, GEMINI_MODEL } from '../geminiClient.js';
+import { getGeminiClient, GEMINI_MODEL } from '../geminiClient.js';
 import {
   systemGraphResponseSchema,
   type SystemGraphEnrichment,
@@ -303,7 +303,7 @@ ${fullBody || 'No extra body context provided.'}
   };
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getGeminiClient().models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
       config: {

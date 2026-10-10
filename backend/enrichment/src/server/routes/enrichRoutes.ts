@@ -526,6 +526,40 @@ enrichRouter.get('/ideas', (_req: Request, res: Response) => {
   res.json(data);
 });
 
+const artifactFiles = new Set([
+  'idea.json', 'manifest.json', 'thumbnail.svg', 'thumbnail.json',
+  'raw-body.txt', 'transcript-segments.json', 'summary.md',
+  'pros-cons.json', 'pros-cons.md', 'assumptions-open-questions.md',
+  'competitors.json', 'competitors.md', 'workflow.json', 'workflow.mmd',
+  'workflow.svg', 'system-architecture.json', 'system-architecture.mmd',
+  'system-architecture.svg',
+]);
+
+enrichRouter.get('/ideas/:id/artifacts/:filename', (req: Request, res: Response): void => {
+  const { id, filename } = req.params;
+  if (!/^[A-Za-z0-9_-]+$/.test(id) || !artifactFiles.has(filename)) {
+    res.status(404).json({ error: 'Artifact not found' });
+    return;
+  }
+  if (!readIdeasData().ideas.some(idea => idea.id === id)) {
+    res.status(404).json({ error: 'Idea not found' });
+    return;
+  }
+
+  try {
+    const artifactsRoot = fs.realpathSync(path.join(path.dirname(getIdeasFilePath()), 'ideas'));
+    const artifactPath = fs.realpathSync(path.join(artifactsRoot, id, filename));
+    // Reject symlinks that escape the saved artifact directory, too.
+    if (!artifactPath.startsWith(`${artifactsRoot}${path.sep}`) || !fs.statSync(artifactPath).isFile()) {
+      res.status(404).json({ error: 'Artifact not found' });
+      return;
+    }
+    res.sendFile(artifactPath);
+  } catch {
+    res.status(404).json({ error: 'Artifact not found' });
+  }
+});
+
 enrichRouter.get('/ideas/:id', (req: Request, res: Response): void => {
   const data = readIdeasData();
   const id = req.params.id;

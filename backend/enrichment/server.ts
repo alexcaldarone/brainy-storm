@@ -16,6 +16,7 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || '3000', 10);
+  const HOST = process.env.HOST || '0.0.0.0';
 
   // Body parser for JSON payloads
   app.use(express.json({ limit: '10mb' }));
@@ -56,8 +57,8 @@ async function startServer() {
   // Mount API endpoints
   app.use('/api', enrichRouter);
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Server] Brainstorm Idea Enrichment Engine running on http://0.0.0.0:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`[Server] Brainstorm Idea Enrichment Engine running on http://${HOST}:${PORT}`);
     console.log(`[Server] API Endpoints mounted at /api/enrich/*`);
   });
 }

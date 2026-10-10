@@ -347,6 +347,122 @@
       "metadata": {
         "key_takeaway": "The team agreed to move forward with a prototype subject to strict guardrails, including diff-based token filtering, closed-loop sandbox testing, and an append-only audit trail for compliance and human-in-the-loop sign-off."
       }
+    },
+    {
+      "id": "my-beautiful-idea",
+      "title": "my-beautiful-idea",
+      "summary": "my idea talks about",
+      "transcript": "my idea talks about",
+      "raw_body": "my idea talks about",
+      "proponents": [],
+      "opponents": [],
+      "thumbnail": null,
+      "competitors": null,
+      "workflow": null,
+      "pros_cons": null,
+      "systemGraph": null,
+      "status": "idle",
+      "active_tools": [],
+      "created_at": 1791634652.2228491,
+      "updated_at": 1791634652.2228491,
+      "metadata": {}
+    },
+    {
+      "id": "voice-brainstorm-ai",
+      "title": "Voice-First Agentic Brainstorming Canvas",
+      "summary": "An interactive canvas that transcribes speech, clusters thoughts into distinct ideas, and autonomously enriches them with competitor research, visual workflows, and debate pros/cons.",
+      "transcript": null,
+      "raw_body": "",
+      "proponents": [
+        "Marko (arguing for frictionless voice input)",
+        "Voice-first interface enables zero-friction ideation",
+        "Automatic agentic competitor check provides immediate reality testing"
+      ],
+      "opponents": [
+        "Alex (concerned about latency of agent calls)",
+        "Concerned that spontaneous ideas might be prematurely rejected by competitor analysis",
+        "Need to verify privacy of recorded brainstorming sessions"
+      ],
+      "thumbnail": null,
+      "competitors": {
+        "summary": null,
+        "competitors": [
+          {
+            "name": "Miro / Mural",
+            "summary": "Collaborative digital whiteboards with AI clustering and templates.",
+            "differentiator": "Focuses on static post-it canvas rather than real-time voice-driven agentic tool calling.",
+            "idea": null,
+            "yearOfFounding": null,
+            "shortBio": null,
+            "howWeDiffer": null
+          },
+          {
+            "name": "Otter.ai / Fireflies",
+            "summary": "Meeting transcription and summary bots.",
+            "differentiator": "Only records transcripts and summaries, does not synthesize ideas or spawn autonomous subagents.",
+            "idea": null,
+            "yearOfFounding": null,
+            "shortBio": null,
+            "howWeDiffer": null
+          },
+          {
+            "name": "Whimsical AI",
+            "summary": "AI mind mapping and flowcharts generated from text prompts.",
+            "differentiator": "Requires manual prompt typing rather than continuous conversational transcription.",
+            "idea": null,
+            "yearOfFounding": null,
+            "shortBio": null,
+            "howWeDiffer": null
+          }
+        ],
+        "market_landscape": "The market is split between passive meeting recorders and static whiteboards. An active agentic brainstorming companion creates a distinct new category.",
+        "our_positioning": "We position ourselves as an active AI co-founder during brainstorming: listening continuously, identifying distinct ideas, and autonomously dispatching research and workflow agents.",
+        "groundingSources": [],
+        "generated_at": 1791637741.706104
+      },
+      "workflow": {
+        "summary": "Continuous voice capture feeds an idea extraction pipeline that triggers asynchronous agentic enrichment.",
+        "steps": [
+          "User speaks in brainstorming session",
+          "Speech stream is transcribed in real-time",
+          "Engine detects and categorizes distinct ideas",
+          "Agentic router dispatches asynchronous tool calls (Competitors, Workflow, Pros/Cons)",
+          "Data is atomically persisted and live UI updates via WebSocket"
+        ],
+        "mermaid_code": "graph TD\n    A[Audio Input] --> B[Transcriber Microservice]\n    B --> C[Idea Engine]\n    C --> D{Agentic Router}\n    D -->|Web Research| E[Competitor Agent]\n    D -->|Process Mapping| F[Workflow Agent]\n    D -->|Debate Extraction| G[Pros & Cons Agent]\n    E --> H[Atomic ideas.json]\n    F --> H\n    G --> H\n    H --> I[Frontend Live Board]",
+        "mermaidCode": null,
+        "image_prompt": "Futuristic modern interactive brainstorming dashboard with floating agent cards, glowing data streams, sleek tech aesthetic",
+        "image_url": null,
+        "generated_at": 1791637740.9958613
+      },
+      "pros_cons": {
+        "summary": null,
+        "pros": [
+          "Eliminates manual note-taking and idea synthesis during fast-paced brainstorming",
+          "Real-time competitor grounding prevents teams from reinventing the wheel",
+          "Instant visual workflows accelerate shared team alignment"
+        ],
+        "cons": [
+          "Requires reliable low-latency speech transcription",
+          "Agentic tool calls can accumulate LLM token costs if not throttled",
+          "Potential hallucinations in competitor claims without search verification"
+        ],
+        "key_risks": [
+          "Microservice synchronization lag between transcriber and engine",
+          "Noise or cross-talk in room audio degrading idea extraction"
+        ],
+        "open_questions": [
+          "How often should the router re-evaluate updated idea context?",
+          "Should user manual clicks interrupt or queue behind background auto-evaluations?"
+        ],
+        "generated_at": 1791637741.0107899
+      },
+      "systemGraph": null,
+      "status": "enriched",
+      "active_tools": [],
+      "created_at": 1791637675.8832397,
+      "updated_at": 1791637741.7275796,
+      "metadata": {}
     }
   ]
 }

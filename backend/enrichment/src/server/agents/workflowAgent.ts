@@ -2,7 +2,7 @@
  * Architecture & Diagram Generation Subagent
  * Generates enterprise-grade, professional architecture diagrams and Mermaid code.
  */
-import { ai, GEMINI_MODEL } from '../geminiClient.js';
+import { getGeminiClient, GEMINI_MODEL } from '../geminiClient.js';
 import { diagramResponseSchema, type DiagramEnrichment, type DiagramNode } from '../schemas.js';
 
 function generateProfessionalSvgFromNodes(
@@ -173,7 +173,7 @@ ${fullBody || 'No extra body context provided.'}
   };
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getGeminiClient().models.generateContent({
       model: GEMINI_MODEL,
       contents: prompt,
       config: {
