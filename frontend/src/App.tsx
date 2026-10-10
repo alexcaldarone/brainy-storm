@@ -7,6 +7,7 @@ import {
   Clock3,
   FileText,
   Info,
+  LoaderCircle,
   MoreHorizontal,
   Play,
   Pause,
@@ -30,10 +31,10 @@ const sessionParticipants = [
   { initials: 'LL', color: 'avatar-self' },
 ]
 
-function InfoBanner({ message, role = 'status' }: { message: string; role?: 'status' | 'alert' }) {
+function InfoBanner({ message, role = 'status', loading = false }: { message: string; role?: 'status' | 'alert'; loading?: boolean }) {
   const [dismissed, setDismissed] = useState(false)
   if (dismissed) return null
-  return <div className="info-banner" role={role}><Info size={16} aria-hidden="true" /><span>{message}</span><button type="button" aria-label="Dismiss notification" onClick={() => setDismissed(true)}><X size={16} /></button></div>
+  return <div className="info-banner" role={role}><span className="info-banner-content">{loading ? <LoaderCircle className="banner-spinner" size={16} aria-hidden="true" /> : <Info size={16} aria-hidden="true" />}<span>{message}</span></span><button type="button" aria-label="Dismiss notification" onClick={() => setDismissed(true)}><X size={16} /></button></div>
 }
 
 function thumbnailUrl(thumbnail?: string | null) {
@@ -55,6 +56,7 @@ function App() {
   const pollingGeneration = useRef(0)
   const resetInProgress = useRef(false)
   const [ideasError, setIdeasError] = useState('')
+  const [ideasLoading, setIdeasLoading] = useState(true)
   const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
   const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
@@ -101,7 +103,10 @@ function App() {
           setIdeasError('Showing saved ideas. Live updates are unavailable; retrying…')
         }
       } finally {
-        if (!controller.signal.aborted) timer = setTimeout(refresh, 3000)
+        if (!controller.signal.aborted) {
+          setIdeasLoading(false)
+          timer = setTimeout(refresh, 3000)
+        }
       }
     }
     void refresh()
@@ -196,7 +201,7 @@ function App() {
       <main className="main-column">
         <section className={`board-scroll ${!currentIdea && layout === 'horizontal' ? 'horizontal-board' : ''}`}>
           <div className="board-content">
-            {ideasError && <InfoBanner key={ideasError} message={ideasError} />}
+            {(ideasLoading || ideasError) && <InfoBanner key={ideasError || 'ideas-loading'} message={ideasError || 'Loading ideas…'} loading />}
             {currentIdea ? <article className="idea-page">
               <div className="idea-page-banner"><BrandShape variant={ideas.findIndex(idea => idea.id === currentIdea.id) % 6} /></div>
               <div className="idea-page-toolbar"><button type="button" className="idea-back-button" onClick={() => setSelectedIdea(null)}>← Back to {activeSession}</button>{collaboratorActions}</div>
@@ -297,7 +302,7 @@ function App() {
         </div>
         <div className="transcript-feed" ref={transcriptFeedRef} aria-live="polite">
           {error && <InfoBanner key={error} message={error} role="alert" />}
-          {!loaded && !error && <InfoBanner message="Loading existing transcript…" />}
+          {!loaded && !error && <InfoBanner message="Loading existing transcript…" loading />}
           {loaded && transcript.length === 0 && <p>Start recording to capture your conversation.</p>}
           <div className="transcript-date"><span />TODAY<span /></div>
           {transcript.map((line, index) => (

@@ -51,6 +51,7 @@
   border-color: transparent;
 }
 .record-control { width: auto; flex-shrink: 0; }
+.info-banner button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; min-height: 24px; }
 .idea-back-button { min-height: var(--control-height); }
 .layout-picker { gap: 4px; padding: 3px; border-radius: var(--radius); }
 .layout-picker button[aria-pressed='true'] { border-color: var(--border); }
