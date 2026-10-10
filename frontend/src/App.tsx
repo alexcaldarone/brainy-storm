@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import './enrichedView.css'
 import repositoryIdeas from '../../data/ideas.json'
 import { AbstractSymbol, BrandShape, RecordingShape } from './BrandShape'
 import { EditableIdea } from './EditableIdea'
