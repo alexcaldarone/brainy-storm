@@ -1,3 +1,5 @@
+export type GeneratedIdea = { id: string | number; title: string; summary: string }
+
 export type Idea = {
   id: string
   title: string
@@ -21,7 +23,7 @@ export function readWorkspace(raw: string | null): Workspace | null {
   } catch { return null }
 }
 
-export function mergeGeneratedIdeas(current: Idea[], incoming: { id: number; title: string; summary: string }[]): Idea[] {
+export function mergeGeneratedIdeas(current: Idea[], incoming: GeneratedIdea[]): Idea[] {
   const merged = incoming.map((idea, index) => {
     const previous = current.find(entry => entry.id === `engine-${idea.id}`)
     return {

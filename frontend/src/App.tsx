@@ -20,15 +20,16 @@ import {
   Square,
   X,
 } from 'lucide-react'
+import repositoryIdeas from '../../data/ideas.json'
 import './App.css'
 import { AbstractSymbol, BrandShape, RecordingShape } from './BrandShape'
 import { EditableIdea } from './EditableIdea'
 import { mergeGeneratedIdeas, readWorkspace, workspaceKey } from './ideaWorkspace'
-import type { Idea, Session } from './ideaWorkspace'
+import type { GeneratedIdea, Idea, Session } from './ideaWorkspace'
 import { useTranscription } from './useTranscription'
 
 const initialSessions: Session[] = [
-  { name: 'Hackathon', date: 'Today', ideas: 4 },
+  { name: 'Hackathon', date: 'Today', ideas: repositoryIdeas.ideas.length },
   { name: 'Agent onboarding', date: 'Yesterday', ideas: 8 },
   { name: 'Community launch', date: 'Oct 08', ideas: 5 },
   { name: 'A better daily standup', date: 'Oct 04', ideas: 3 },
@@ -48,7 +49,10 @@ function App() {
   const [sessions, setSessions] = useState(restored?.sessions || initialSessions)
   const [activeSession, setActiveSession] = useState('Hackathon')
   const [search, setSearch] = useState('')
-  const [sessionIdeas, setSessionIdeas] = useState<Record<string, Idea[]>>(restored?.sessionIdeas || {})
+  const [sessionIdeas, setSessionIdeas] = useState<Record<string, Idea[]>>(() => ({
+    ...restored?.sessionIdeas,
+    Hackathon: mergeGeneratedIdeas(restored?.sessionIdeas.Hackathon || [], repositoryIdeas.ideas),
+  }))
   const [expanded, setExpanded] = useState<string[]>(['Hackathon'])
   const [ideasError, setIdeasError] = useState('')
   const [showActivityNote, setShowActivityNote] = useState(true)
@@ -80,15 +84,15 @@ function App() {
     let timer: ReturnType<typeof setTimeout>
     async function refresh() {
       try {
-        const base = (import.meta.env.VITE_TRANSCRIBER_URL || '/api').replace(/\/$/, '')
+        const base = (import.meta.env.VITE_IDEAS_URL || '/enrichment').replace(/\/$/, '')
         const response = await fetch(`${base}/ideas`, { signal: controller.signal })
         if (!response.ok) throw new Error('Could not load generated ideas.')
-        const data = await response.json() as { ideas: { id: number; title: string; summary: string }[] }
+        const data = await response.json() as GeneratedIdea[]
         if (controller.signal.aborted) return
-        setSessionIdeas(current => ({ ...current, Hackathon: mergeGeneratedIdeas(current.Hackathon || [], data.ideas) }))
+        setSessionIdeas(current => ({ ...current, Hackathon: mergeGeneratedIdeas(current.Hackathon || [], data) }))
         setIdeasError('')
       } catch {
-        if (!controller.signal.aborted) setIdeasError('Generated ideas are unavailable. Retrying…')
+        if (!controller.signal.aborted) setIdeasError('Showing saved ideas. Live updates are unavailable; retrying…')
       } finally {
         if (!controller.signal.aborted) timer = setTimeout(refresh, 3000)
       }
