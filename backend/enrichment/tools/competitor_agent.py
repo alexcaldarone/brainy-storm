@@ -1,4 +1,4 @@
-import json
+import asyncio
 from typing import Optional
 from ..models import Idea, CompetitorEnrichment, CompetitorItem
 from ..llm_client import llm_client
@@ -16,20 +16,18 @@ class CompetitorAgent:
 
         # 1. Gather web search context if possible
         search_query = f"{idea.title} {idea.summary[:80]} competitors alternatives"
-        search_results = (
-            []
-            if DEFAULT_PROVIDER.lower() == "mock"
-            else await llm_client.search_web(search_query, num_results=4)
+        provider = DEFAULT_PROVIDER.lower()
+        uses_gemini_grounding = provider == "gemini" or (
+            provider == "auto" and bool(llm_client.gemini_key)
+        )
+        search_task = (
+            None
+            if provider == "mock"
+            else asyncio.create_task(llm_client.search_web(search_query, num_results=4))
         )
 
-        search_context_str = ""
-        if search_results:
-            search_context_str = "\n".join(
-                [f"- {r.get('title')}: {r.get('snippet')} ({r.get('url')})" for r in search_results]
-            )
-
-        # 2. Construct LLM prompt
-        prompt = f"""
+        def build_prompt(search_context_str: str = "") -> str:
+            return f"""
 You are a Market Intelligence & Competitor Research AI Agent for a brainstorming session.
 
 IDEA DETAILS:
@@ -52,6 +50,7 @@ TASK:
 
 Return your response in pure JSON format matching this schema:
 {{
+  "summary": "Concise conclusion from the competitor research",
   "competitors": [
     {{
       "name": "Competitor Name",
@@ -64,39 +63,87 @@ Return your response in pure JSON format matching this schema:
     }}
   ],
   "market_landscape": "Brief synthesis of current solutions in the market",
-  "our_positioning": "How our idea stands out and positions against these competitors"
+  "our_positioning": "How our idea stands out and positions against these competitors",
+  "groundingSources": ["https://source-used.example/page"]
 }}
 """
 
         system_instruction = "You are an expert startup analyst specializing in competitive landscapes and strategic positioning. Always respond in valid JSON."
-
-        # Enable Gemini search grounding if Gemini is active
-        raw_output = await llm_client.generate_json(
-            prompt=prompt,
-            system_instruction=system_instruction,
-            enable_search=True
-        )
+        search_results = []
+        if uses_gemini_grounding:
+            try:
+                raw_output = await llm_client.generate_json(
+                    prompt=build_prompt(),
+                    system_instruction=system_instruction,
+                    enable_search=True,
+                )
+            except Exception:
+                search_results = await search_task if search_task else []
+                search_context = "\n".join(
+                    f"- {item.get('title')}: {item.get('snippet')} ({item.get('url')})"
+                    for item in search_results
+                )
+                raw_output = await llm_client.generate_json(
+                    prompt=build_prompt(search_context),
+                    system_instruction=system_instruction,
+                    enable_search=False,
+                )
+            else:
+                if raw_output.get("groundingSources"):
+                    if search_task and not search_task.done():
+                        search_task.cancel()
+                        await asyncio.gather(search_task, return_exceptions=True)
+                elif search_task:
+                    search_results = await search_task
+        else:
+            search_results = await search_task if search_task else []
+            search_context = "\n".join(
+                f"- {item.get('title')}: {item.get('snippet')} ({item.get('url')})"
+                for item in search_results
+            )
+            raw_output = await llm_client.generate_json(
+                prompt=build_prompt(search_context),
+                system_instruction=system_instruction,
+                enable_search=False,
+            )
 
         competitors = []
-        for c in raw_output.get("competitors", []):
+        raw_competitors = raw_output.get("competitors")
+        if not isinstance(raw_competitors, list):
+            raw_competitors = []
+        for c in raw_competitors:
             if isinstance(c, dict) and "name" in c:
+                summary = str(c.get("summary") or "Not provided")
+                differentiator = str(c.get("differentiator") or "Not provided")
                 competitors.append(CompetitorItem(
-                    name=c.get("name", "Unknown"),
-                    summary=c.get("summary", ""),
-                    differentiator=c.get("differentiator", ""),
-                    idea=c.get("idea"),
-                    yearOfFounding=c.get("yearOfFounding"),
-                    shortBio=c.get("shortBio"),
-                    howWeDiffer=c.get("howWeDiffer"),
+                    name=str(c.get("name") or "Unknown"),
+                    summary=summary,
+                    differentiator=differentiator,
+                    idea=str(c.get("idea") or summary),
+                    yearOfFounding=str(c.get("yearOfFounding") or "Unknown"),
+                    shortBio=str(c.get("shortBio") or summary),
+                    howWeDiffer=str(c.get("howWeDiffer") or differentiator),
                 ))
 
+        discovered_sources = [
+            r.get("url", "") for r in search_results if r.get("url")
+        ]
+        raw_model_sources = raw_output.get("groundingSources")
+        if not isinstance(raw_model_sources, list):
+            raw_model_sources = []
+        model_sources = []
+        for source in raw_model_sources:
+            url = source.get("url") if isinstance(source, dict) else source
+            if isinstance(url, str) and url.startswith(("http://", "https://")):
+                model_sources.append(url)
+        grounding_sources = list(dict.fromkeys(discovered_sources + model_sources))
+
         enrichment = CompetitorEnrichment(
+            summary=str(raw_output.get("summary") or raw_output.get("market_landscape") or "Not provided"),
             competitors=competitors,
-            market_landscape=raw_output.get("market_landscape", ""),
-            our_positioning=raw_output.get("our_positioning", ""),
-            groundingSources=[
-                r.get("url", "") for r in search_results if r.get("url")
-            ],
+            market_landscape=str(raw_output.get("market_landscape") or "Not provided"),
+            our_positioning=str(raw_output.get("our_positioning") or "Not provided"),
+            groundingSources=grounding_sources,
         )
 
         print(f"[CompetitorAgent] Completed for '{idea.title}' with {len(competitors)} competitors found.")

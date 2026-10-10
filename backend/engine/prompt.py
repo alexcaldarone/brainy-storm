@@ -1,8 +1,8 @@
 import json
 
 
-def build_prompt(ideas: list[dict], chunk: str) -> str:
-    known_ideas = [{"id": idea["id"], "title": idea["title"], "summary": idea["summary"]} for idea in ideas]
+def build_prompt(ideas: dict[str, dict], chunk: str) -> str:
+    known_ideas = [{"id": idea_id, "title": idea["title"], "summary": idea["summary"]} for idea_id, idea in ideas.items()]
     known_ideas_json = json.dumps(known_ideas, indent=2, ensure_ascii=False)
 
     return f"""You are the idea tracker of a live brainstorming session. A team is talking, and their speech is transcribed in real time.
@@ -20,6 +20,10 @@ Your task is to find every idea discussed in the chunk and report it.
 - Do not create a new idea when the chunk only refines, criticizes or extends an existing one.
 - Ignore small talk, logistics and filler that contain no idea.
 - If the chunk contains no idea at all, return an empty list.
+
+Current discussion focus:
+- Set `is_currently_discussed` to true on at most ONE returned idea: the idea being discussed at the END of the chunk, even if it is an existing idea with no new details.
+- Set it to false on all other ideas. If the conversation has moved to logistics, small talk, or no identifiable idea, all values must be false.
 
 Writing style:
 

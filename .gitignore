@@ -3,9 +3,10 @@
 .env.*
 !.env.example
 *.env
-
-# Local runtime transcript (tracked templates use the .example suffix)
-data/transcript.txt
+.*/*
+# Live pub/sub topics (tracked samples are named *.example.<ext>)
+pubsub/*
+!pubsub/*.example.*
 
 # Python
 __pycache__/
@@ -63,3 +64,6 @@ AGENTS.md
 *.zip
 *.tmp
 *.log
+
+
+PLAN.md

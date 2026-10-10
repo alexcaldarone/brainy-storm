@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=recia@400,500,600,700&f[]=supreme@400,500,700&display=swap');
 
 :root {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Supreme', Arial, sans-serif;
   color: #18181b;
   background: #fff;
   font-synthesis: none;
