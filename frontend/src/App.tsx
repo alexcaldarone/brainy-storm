@@ -12,7 +12,6 @@ import {
   ChevronRight,
   Lightbulb,
   MoreHorizontal,
-  Pause,
   Play,
   Plus,
   Search,
@@ -272,23 +271,20 @@ function App() {
         </section>
 
         <footer className="recording-dock">
-          <div className="recording-status">
-            <span className={`recording-indicator ${recording}`}><span /></span>
-            <div className="recording-copy"><strong>{recording === 'recording' ? 'Recording' : recording === 'paused' ? 'Paused' : recording === 'connecting' ? 'Connecting…' : recording === 'saving' ? 'Saving…' : 'Ready to record'}</strong><span>{recording === 'recording' ? 'Live transcript' : 'Transcript retained in memory'}</span></div>
-          </div>
           <div className={`waveform ${recording !== 'recording' ? 'muted' : ''}`} aria-hidden="true">
             {Array.from({ length: 37 }, (_, index) => <i key={index} style={{ '--bar-height': `${10 + ((index * 17 + index % 5 * 11) % 25)}px` } as React.CSSProperties} />)}
           </div>
           <span className="recording-time"><Clock3 size={14} /> {minutes}:{seconds}</span>
-          {recording === 'recording' ? (
-            <>
-              <button type="button" className="record-control pause-control" onClick={() => stopRecording(true)} aria-label="Pause transcript"><Pause size={15} fill="currentColor" /></button>
-              <button type="button" className="record-control stop-control" onClick={() => stopRecording()} aria-label="Stop transcript"><Square size={13} fill="currentColor" /></button>
-            </>
-          ) : (
-            <button type="button" className="record-control primary-control" disabled={transitioning} onClick={() => void startRecording()}><Play size={14} fill="currentColor" /><span>{transitioning ? 'Please wait…' : recording === 'paused' ? 'Resume recording' : 'Start recording'}</span></button>
-          )}
-          <button type="button" className="record-more icon-button small" aria-label="Recording options"><MoreHorizontal size={17} /></button>
+          <button
+            type="button"
+            className="record-control primary-control"
+            disabled={transitioning}
+            aria-busy={transitioning}
+            onClick={() => recording === 'recording' ? stopRecording() : void startRecording()}
+          >
+            {recording === 'recording' || recording === 'saving' ? <Square size={13} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+            <span>{recording === 'recording' || recording === 'saving' ? 'Stop' : 'Start'}</span>
+          </button>
         </footer>
       </main>
 
