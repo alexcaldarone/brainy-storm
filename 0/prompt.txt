@@ -1,0 +1,13 @@
+# Context from my IDE setup:
+
+## Active file: backend/transcriber/.env
+
+## Open tabs:
+- .env: backend/transcriber/.env
+- README.md: backend/transcriber/README.md
+- .env copy.example: backend/transcriber/.env copy.example
+- .env.example: backend/transcriber/.env.example
+- session.py: backend/transcriber/session.py
+
+## My request:
+add the wordmark just brainy storm at the top left in the font everything is in
