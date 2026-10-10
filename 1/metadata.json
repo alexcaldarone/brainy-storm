@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.11.4",
+  "checkpoint_id": "01M4K1WP945GKWST86N7KJDHPT",
+  "session_id": "01a1261e-1a6f-7ff2-ad33-562c59da1a24",
+  "strategy": "manual-commit",
+  "created_at": "2026-10-10T14:01:26.125293Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/App.css"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6-astra",
+  "turn_id": "a3332c351b65",
+  "compact_transcript_start": 0,
+  "initial_attribution": {
+    "calculated_at": "2026-10-10T14:01:26.120832Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 7,
+    "total_committed": 0,
+    "total_lines_changed": 7,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 113,
+      "user_lines_removed": 108,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".vscode/settings.json": 3,
+        "frontend/src/App.css": 9,
+        "y/settings.json": 101
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 101,
+        "frontend/src/App.css": 7
+      }
+    }
+  ]
+}
