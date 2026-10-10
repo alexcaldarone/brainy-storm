@@ -2,6 +2,8 @@
 
 Every folder is its own microservice (python server / react frontend).
 
+![Architecture Diagram](public/diagram.png)
+
 ### Collaborators
 
 - [Alex John Caldarone](https://github.com/alexcaldarone)
