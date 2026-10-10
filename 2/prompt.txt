@@ -1,0 +1,13 @@
+put this transcript as a file in the project structure so others can use it as well #attachment:Pasted text #1
+
+---
+
+push only the transcript to main
+
+---
+
+why do i see this push on entire and not the rest of the frontend merge
+
+---
+
+yes but the frontend merge is still not visible on entire
