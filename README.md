@@ -2,7 +2,7 @@
 
 > A real-time brainstorming companion that **listens** to your team, extracts ideas on the fly, and **enriches** them with live critique and competitor research.
 
-https://github.com/alexcaldarone/tech-europe-agentic-hack/raw/main/public/demo.mp4
+https://github.com/user-attachments/assets/402708e6-c2ad-4e40-b67b-ea1e0501324d
 
 Brainstorming sessions often lose momentum to note-taking: good ideas get buried in discussion, tangents derail focus, and competitor research happens days later—if at all.
 
