@@ -9,7 +9,6 @@ const config = parse(fs.readFileSync(path.join(repoRoot, 'configs/default.yaml')
 const ideaUpdatesPath = path.join(repoRoot, config.pubsub.dir, config.pubsub.idea_updates)
 const transcriptPath = path.join(repoRoot, config.pubsub.dir, config.pubsub.transcript)
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), {
     // The browser cannot read pubsub files, so the dev server serves the pubsub topics as is.
@@ -33,7 +32,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/transcriber': {
-        target: process.env.TRANSCRIBER_TARGET || 'http://127.0.0.1:8000',
+        target: 'http://transcriber:8000',
         ws: true,
         rewrite: path => path.replace(/^\/api\/transcriber/, ''),
       },

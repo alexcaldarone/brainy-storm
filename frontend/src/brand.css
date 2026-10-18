@@ -9,7 +9,6 @@
   --input: #e5e5e5;
   --primary: #171717;
   --primary-foreground: #fff;
-  --secondary: #f5f5f5;
   --brand-blue: #414dff;
   --brand-orange: #ff7146;
   --brand-pink: #f47aff;
@@ -22,8 +21,7 @@
   color: var(--foreground);
   background: var(--background);
 }
-h1, h2, h3, .wordmark, .empty-board strong,
-.board-heading-row h1, .idea-card h3, .transcript-header h2 {
+h1, h2, h3, .wordmark, .empty-board strong, .board-heading-row h1, .idea-card h3, .transcript-header h2 {
   font-family: 'Recia', Georgia, serif;
 }
 .app-shell { --page-top-spacing: 20px; }
@@ -33,22 +31,20 @@ h1, h2, h3, .wordmark, .empty-board strong,
 .main-column, .transcript-sidebar { background: #fff; }
 .board-scroll { background: #fff; }
 .board-heading-row h1 { font-size: var(--text-title); font-weight: 500; letter-spacing: -0.045em; }
-.section-title h2, .transcript-header h2 { font-weight: 500; }
+.transcript-header h2 { font-weight: 500; }
 .restart-dialog h2 { font-size: var(--text-heading); font-weight: 500; line-height: 1.35; letter-spacing: -0.03em; }
-.eyebrow { flex-wrap: wrap; line-height: 1.6; color: #737373; }
 .session-search { background: #fff; }
 .session-search:focus-within { border-color: #737373; }
 .folder-row.active, .idea-nav-item.active { background: #e8e8e8; color: #171717; }
 .info-banner { color: #171717; background: var(--brand-aqua); border-color: var(--brand-aqua); }
 .info-banner[role='alert'] { color: #171717; border-left: 3px solid var(--brand-orange); }
 .empty-board { min-height: 350px; padding: 24px; background: #fafafa; border-color: #d4d4d4; border-radius: 9px; }
-.empty-board-icon { width: 52px; height: 52px; background: #ededed; color: #171717; }
+.empty-board-icon { width: 52px; height: 52px; color: #171717; }
 .empty-board strong { color: #171717; font-size: var(--text-heading); font-weight: 500; }
 .empty-board > span:nth-of-type(2) { max-width: 280px; color: #737373; font-size: var(--text-body); line-height: 1.6; }
 .idea-card { border-color: #e5e5e5; border-radius: 8px; box-shadow: none; }
 .idea-card:hover { border-color: #a3a3a3; box-shadow: 0 4px 14px #00000008; }
 .idea-art { height: 160px; background: #000; border-bottom: 1px solid #e5e5e5; }
-.idea-thumbnail { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
 .brand-shape { display: block; width: 100%; height: 100%; }
 .shape-ground { fill: #000; }
 .shape-ink { fill: var(--brand-blue); }
@@ -61,7 +57,7 @@ h1, h2, h3, .wordmark, .empty-board strong,
 .shape-5 .shape-ink { fill: var(--brand-purple); }
 .idea-card h3 { color: #171717; font-size: var(--text-heading); font-weight: 500; line-height: 1.35; }
 .idea-card-body > p { color: #666; font-size: var(--text-body); font-weight: 400; }
-.idea-tag { color: #666; background: #f5f5f5; font-size: var(--text-small); }
+.idea-tag { color: #666; background: #f5f5f5; }
 .add-idea-card { background: #fafafa; border-color: #d4d4d4; }
 .add-idea-card:hover { background: #f5f5f5; border-color: #a3a3a3; }
 .recording-dock { gap: 14px; background: #171717; border-color: #171717; border-radius: 9px; box-shadow: none; }
@@ -72,9 +68,8 @@ h1, h2, h3, .wordmark, .empty-board strong,
 .recording-lobes ellipse { transform-box: fill-box; transform-origin: center; transform: scaleY(0.35); }
 .is-recording .recording-lobes { fill: var(--brand-aqua); }
 .is-recording .recording-lobes ellipse { animation: brand-listen 950ms ease-in-out infinite alternate; }
-.recording-time { color: #eee; font-size: var(--text-body); }
-.primary-control { height: 36px; padding: 0 13px; color: #fff; background: var(--brand-blue); border-color: var(--brand-blue); font-size: var(--text-body); }
-.primary-control:hover { color: #fff; background: #3540dd; border-color: #3540dd; }
+.recording-time { color: #eee; }
+.primary-control { height: 36px; padding: 0 13px; font-size: var(--text-body); }
 .primary-control:disabled { opacity: 0.6; cursor: wait; }
 .transcript-line-content p { color: #666; font-size: var(--text-body); font-weight: 400; }
 ::selection { color: #171717; background: var(--brand-aqua); }
@@ -85,20 +80,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline-color: var(
   .wordmark { font-size: var(--text-heading); }
   .empty-board { min-height: 310px; padding: 18px 12px; }
   .empty-board strong { font-size: var(--text-heading); }
-  .recording-dock { flex-wrap: nowrap; gap: 8px; }
+  .recording-dock { flex-wrap: nowrap; }
   .recording-visual { flex: 1; }
-  .recording-visual svg { height: 38px; }
   .recording-visual span { display: none; }
-  .recording-time { display: inline-flex; font-size: var(--text-small); }
+  .recording-time { display: inline-flex; }
   .recording-time svg { display: none; }
   .primary-control { padding: 0 8px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .is-recording .recording-lobes ellipse { animation: none; transform: scaleY(0.7); }
-}
-
-/* People and idea symbols carry the expressive brand colors. */
-.profile-avatar { color: #171717; background: var(--brand-pink); }
 .abstract-symbol { display: inline-block; width: 19px; height: 19px; flex-shrink: 0; color: var(--brand-blue); }
 .idea-nav-item .abstract-symbol { width: 15px; height: 15px; }
 .idea-nav-item:nth-child(3n + 2) .abstract-symbol { color: #a83cf4; }
@@ -112,9 +100,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline-color: var(
 .editable-block:hover, .editable-tag:hover { background: #fafafa; }
 .editable-block:focus-visible, .editable-tag:focus-visible { outline: 2px solid #e5e5e5; outline-offset: 5px; }
 .editable-title { font-family: 'Recia', Georgia, serif; font-weight: 500; font-size: var(--text-title); letter-spacing: -0.03em; line-height: 1.35; }
-.editable-body { font-size: var(--text-body); line-height: 1.8; color: #525252; }
+.editable-body { font-size: var(--text-body); color: #525252; }
 .editable-tag { width: 180px; max-width: 100%; padding: 6px 8px; border: 0; font-size: var(--text-small); }
-.editor-save-status { color: #737373; font-size: var(--text-small); }
+.editor-save-status { color: #737373; }
 .editor-save-status.save-error { color: #a33318; }
 @media (max-width: 1160px) { .recording-visual span { display: none; } }
 @media (max-width: 640px) {

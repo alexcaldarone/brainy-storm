@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
@@ -112,7 +111,6 @@ def main(
     max_retries: int,
     request_timeout_s: float,
 ) -> None:
-    load_dotenv(REPO_ROOT / ".env")
     client = genai.Client(
         api_key=os.environ["GEMINI_API_KEY"],
         http_options=types.HttpOptions(timeout=int(request_timeout_s * 1000)),

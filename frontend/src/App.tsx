@@ -7,7 +7,6 @@ import {
   Clock3,
   ChevronDown,
   ChevronRight,
-  Command,
   Folder,
   FolderOpen,
   Search,
@@ -27,17 +26,10 @@ import './enrichedView.css'
 import { AbstractSymbol, BrandShape, RecordingShape } from './BrandShape'
 import { EditableIdea } from './EditableIdea'
 import { foldIdeaUpdates, mergeGeneratedIdeas, readWorkspace, workspaceKey } from './ideaWorkspace'
-import type { Idea, Session } from './ideaWorkspace'
+import type { Idea } from './ideaWorkspace'
 import { useTranscription } from './useTranscription'
 
 declare const __IDEA_POLL_INTERVAL_MS__: number
-
-const initialSessions: Session[] = [
-  { name: 'Hackathon', date: 'Today', ideas: 0 },
-  { name: 'Agent onboarding', date: 'Yesterday', ideas: 8 },
-  { name: 'Community launch', date: 'Oct 08', ideas: 5 },
-  { name: 'A better daily standup', date: 'Oct 04', ideas: 3 },
-]
 
 function InfoBanner({ message, role = 'status', loading = false }: { message: string; role?: 'status' | 'alert'; loading?: boolean }) {
   const [dismissed, setDismissed] = useState(false)
@@ -46,7 +38,6 @@ function InfoBanner({ message, role = 'status', loading = false }: { message: st
 }
 
 function getTranscriptWidthBounds() {
-  if (typeof window === 'undefined') return { minWidth: 260, maxWidth: 800 }
   const isOverlay = window.innerWidth <= 980
   const minWidth = 260
   const minSidebarAndMain = window.innerWidth <= 1160 ? 610 : 666
@@ -62,18 +53,9 @@ function App() {
     try { return readWorkspace(localStorage.getItem(workspaceKey)) } catch { return null }
   })
   const [storageError, setStorageError] = useState(false)
-  const [sessions, setSessions] = useState(() => {
-    const saved = restored?.sessions || []
-    const missingBoilerplates = initialSessions.filter(template => !saved.some(session => session.name === template.name))
-    return saved.length ? [...saved, ...missingBoilerplates] : initialSessions
-  })
-  const [activeSession, setActiveSession] = useState('Hackathon')
   const [search, setSearch] = useState('')
-  const [sessionIdeas, setSessionIdeas] = useState<Record<string, Idea[]>>(() => ({
-    ...restored?.sessionIdeas,
-    Hackathon: restored?.sessionIdeas.Hackathon || [],
-  }))
-  const [expanded, setExpanded] = useState<string[]>(['Hackathon'])
+  const [ideas, setIdeas] = useState<Idea[]>(() => restored || [])
+  const [expanded, setExpanded] = useState(true)
   const [restarting, setRestarting] = useState(false)
   const [restartError, setRestartError] = useState('')
   const restartDialog = useRef<HTMLDialogElement>(null)
@@ -83,8 +65,6 @@ function App() {
   const [ideasLoading, setIdeasLoading] = useState(true)
   const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
   const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
-  const ideas = sessionIdeas[activeSession] || []
-  const setIdeas = (update: (current: Idea[]) => Idea[]) => setSessionIdeas(current => ({ ...current, [activeSession]: update(current[activeSession] || []) }))
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
   const { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, resetMemory, exportTranscript } = useTranscription()
   const [transcriptOpen, setTranscriptOpen] = useState(false)
@@ -218,12 +198,12 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(workspaceKey, JSON.stringify({ sessions, sessionIdeas }))
+      localStorage.setItem(workspaceKey, JSON.stringify(ideas))
       // Report the result of synchronizing with browser storage.
       // oxlint-disable-next-line react/set-state-in-effect
       setStorageError(false)
     } catch { setStorageError(true) }
-  }, [sessions, sessionIdeas])
+  }, [ideas])
 
   useLayoutEffect(() => {
     const feed = transcriptFeedRef.current
@@ -242,7 +222,7 @@ function App() {
         if (!response.ok) throw new Error('Could not load generated ideas.')
         const data = foldIdeaUpdates(await response.text())
         if (controller.signal.aborted || generation !== pollingGeneration.current) return
-        setSessionIdeas(current => ({ ...current, Hackathon: mergeGeneratedIdeas(current.Hackathon || [], data) }))
+        setIdeas(current => mergeGeneratedIdeas(current, data))
         const focused = data.find(idea => idea.is_currently_discussed)
         setFocusedIdeaId(focused ? `engine-${focused.id}` : null)
         setIdeasError('')
@@ -266,10 +246,10 @@ function App() {
 
   const query = search.trim().toLowerCase()
   const matchesIdea = (idea: Idea) => `${idea.title} ${idea.summary}`.toLowerCase().includes(query)
-  const visibleSessions = sessions.filter(session => session.name.toLowerCase().includes(query) || (sessionIdeas[session.name] || []).some(matchesIdea))
+  const visibleIdeas = ideas.filter(matchesIdea)
   const currentIdea = ideas.find(idea => idea.id === selectedIdea)
 
-  const visibleFocusedIdeaId = activeSession === 'Hackathon' && !currentIdea
+  const visibleFocusedIdeaId = !currentIdea
     ? ideas.find(idea => idea.id === focusedIdeaId)?.id
     : undefined
 
@@ -286,7 +266,7 @@ function App() {
   const seconds = String(elapsedSeconds % 60).padStart(2, '0')
 
   function downloadMemory() {
-    const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), sessions, sessionIdeas, transcript }, null, 2)], { type: 'application/json' }))
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), ideas, transcript }, null, 2)], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url
     link.download = 'brainstorm-memory.json'
@@ -301,8 +281,7 @@ function App() {
     pollingGeneration.current += 1
     try {
       await resetMemory()
-      setSessionIdeas(current => ({ ...current, Hackathon: [] }))
-      setActiveSession('Hackathon')
+      setIdeas([])
       setSelectedIdea(null)
       setFocusedIdeaId(null)
       restartDialog.current?.close()
@@ -316,15 +295,6 @@ function App() {
     }
   }
 
-  function createSession() {
-    const name = `New brainstorm ${sessions.length}`
-    setSessions((current) => [{ name, date: 'Just now', ideas: 0 }, ...current])
-    setActiveSession(name)
-    setExpanded(current => [...current, name])
-    setSearch('')
-    setSelectedIdea(null)
-  }
-
   function addIdea() {
     const nextIdea: Idea = {
       id: crypto.randomUUID(),
@@ -332,16 +302,9 @@ function App() {
       summary: 'A fresh thought from the room. Add context as the conversation unfolds.',
       tag: 'Just added',
       votes: 0,
-      pattern: 'orbit',
     }
     setIdeas((current) => [...current, nextIdea])
     setSelectedIdea(nextIdea.id)
-  }
-
-  function openSession(name: string, ideaId: string | null = null) {
-    setActiveSession(name)
-    setSelectedIdea(ideaId)
-    setExpanded(current => current.includes(name) ? current : [...current, name])
   }
 
   const collaboratorActions = (
@@ -364,62 +327,44 @@ function App() {
         <button type="button" className="icon-button restart-dialog-close" aria-label="Cancel restart" disabled={restarting} onClick={() => restartDialog.current?.close()}><X size={18} /></button>
         <h2 id="restart-title">Restart brainstorm?</h2>
         <p>Are you sure you want to clear the memory and start over?</p>
-        <p>This clears the Hackathon ideas and the transcript. Other brainstorms are kept. Download your memory first if you want to keep a copy.</p>
+        <p>This clears the Hackathon ideas and the transcript. Download your memory first if you want to keep a copy.</p>
         {restartError && <p role="alert">{restartError}</p>}
         <div className="restart-actions">
           <button className="record-control primary-control" disabled={restarting} onClick={() => void restartBrainstorm()}>{restarting ? 'Restarting…' : 'Clear memory and restart'}</button>
           <button className="outline-button" disabled={restarting} onClick={downloadMemory}><Download size={14} /> Download memory</button>
         </div>
       </dialog>
-      <aside className="session-sidebar" aria-label="Brainstorming sessions">
+      <aside className="session-sidebar" aria-label="Shared brainstorming room">
         <div className="wordmark">brainy storm</div>
-        <button type="button" className="new-session-button" onClick={createSession} aria-label="New brainstorm">
-          <Plus size={16} />
-          <span>New brainstorm</span>
-          <span className="shortcut"><Command size={11} /> K</span>
-        </button>
 
         <label className="session-search">
           <Search size={15} />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search brainstorms & ideas"
-            aria-label="Search brainstorms and ideas"
+            placeholder="Search ideas"
+            aria-label="Search ideas"
           />
-          <span className="search-shortcut">⌘ /</span>
         </label>
 
-        <nav className="session-list-area" aria-label="Brainstorms and ideas">
+        <nav className="session-list-area" aria-label="Room and ideas">
           <div className="session-list">
-            {visibleSessions.map(session => {
-              const open = Boolean(query) || expanded.includes(session.name)
-              const children = (sessionIdeas[session.name] || []).filter(idea => !query || session.name.toLowerCase().includes(query) || matchesIdea(idea))
-              return <div className="brainstorm-folder" key={session.name}>
-                <div className={`folder-row ${activeSession === session.name && !currentIdea ? 'active' : ''}`}>
-                  <button type="button" className="folder-toggle" aria-label={`${open ? 'Collapse' : 'Expand'} ${session.name}`} aria-expanded={open} onClick={() => setExpanded(current => current.includes(session.name) ? current.filter(name => name !== session.name) : [...current, session.name])}>
-                    {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                  </button>
-                  <button type="button" className="session-item" onClick={() => openSession(session.name)}>
-                    {open ? <FolderOpen size={15} /> : <Folder size={15} />}<span className="session-name">{session.name}</span>
-                  </button>
-                </div>
-                {open && <div className="folder-ideas">
-                  {children.map(idea => <button key={idea.id} type="button" className={`idea-nav-item ${activeSession === session.name && selectedIdea === idea.id ? 'active' : ''}`} aria-current={activeSession === session.name && selectedIdea === idea.id ? 'page' : undefined} title={idea.title} onClick={() => openSession(session.name, idea.id)}><AbstractSymbol /><span>{idea.title || 'Untitled idea'}</span></button>)}
-                  {children.length === 0 && <p className="empty-folder">No ideas yet</p>}
-                </div>}
+            <div className="brainstorm-folder">
+              <div className={`folder-row ${!currentIdea ? 'active' : ''}`}>
+                <button type="button" className="folder-toggle" aria-label={`${expanded ? 'Collapse' : 'Expand'} Hackathon`} aria-expanded={expanded || Boolean(query)} onClick={() => setExpanded(current => !current)}>
+                  {expanded || query ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                </button>
+                <button type="button" className="session-item" onClick={() => { setSelectedIdea(null); setExpanded(true) }}>
+                  {expanded || query ? <FolderOpen size={15} /> : <Folder size={15} />}<span className="session-name">Hackathon</span>
+                </button>
               </div>
-            })}
-            {visibleSessions.length === 0 && <p className="empty-search">No brainstorms or ideas found</p>}
+              {(expanded || query) && <div className="folder-ideas">
+                {visibleIdeas.map(idea => <button key={idea.id} type="button" className={`idea-nav-item ${selectedIdea === idea.id ? 'active' : ''}`} aria-current={selectedIdea === idea.id ? 'page' : undefined} title={idea.title} onClick={() => setSelectedIdea(idea.id)}><AbstractSymbol /><span>{idea.title || 'Untitled idea'}</span></button>)}
+                {visibleIdeas.length === 0 && <p className="empty-folder">{query ? 'No ideas found' : 'No ideas yet'}</p>}
+              </div>}
+            </div>
           </div>
         </nav>
-        <div className="sidebar-bottom">
-          <button type="button" className="profile-row" aria-label="Leonarda Lovrić profile">
-            <span className="profile-avatar">LL</span>
-            <span className="profile-copy"><strong>Leonarda Lovrić</strong><small>Personal workspace</small></span>
-            <MoreHorizontal size={17} />
-          </button>
-        </div>
       </aside>
 
       <main className="main-column">
@@ -428,12 +373,12 @@ function App() {
             {(ideasLoading || ideasError) && <InfoBanner key={ideasError || 'ideas-loading'} message={ideasError || 'Loading ideas…'} loading />}
             {currentIdea ? <article className="idea-page">
               <div className="idea-page-banner"><BrandShape variant={ideas.findIndex(idea => idea.id === currentIdea.id) % 6} /></div>
-              <div className="idea-page-toolbar"><button type="button" className="idea-back-button" onClick={() => setSelectedIdea(null)}>← Back to {activeSession}</button>{collaboratorActions}</div>
+              <div className="idea-page-toolbar"><button type="button" className="idea-back-button" onClick={() => setSelectedIdea(null)}>← Back to Hackathon</button>{collaboratorActions}</div>
               <EditableIdea key={currentIdea.id} idea={currentIdea} storageError={storageError} onChange={fields => setIdeas(current => current.map(idea => idea.id === currentIdea.id ? { ...idea, ...fields, locallyEdited: true } : idea))} />
             </article> : <>
             <div className="board-heading-row">
               <div>
-                <h1>{activeSession}</h1>
+                <h1>Hackathon</h1>
               </div>
               {collaboratorActions}
             </div>
@@ -444,15 +389,14 @@ function App() {
                   <article
                     key={idea.id}
                     ref={visibleFocusedIdeaId === idea.id ? discussedCardRef : undefined}
-                    className={`idea-card ${activeSession === 'Hackathon' && focusedIdeaId === idea.id ? 'discussion-focus' : ''}`}
+                    className={`idea-card ${focusedIdeaId === idea.id ? 'discussion-focus' : ''}`}
                     onClick={() => setSelectedIdea(idea.id)}
                   >
-                    <div className={`idea-art art-${idea.pattern}`}>
+                    <div className="idea-art">
                       <BrandShape variant={index % 6} />
-                      {idea.thumbnail && <img className="idea-thumbnail" src={idea.thumbnail} alt="" onError={event => { event.currentTarget.style.display = 'none' }} />}
                     </div>
                     <div className="idea-card-body">
-                      <div className="idea-card-topline">{activeSession === 'Hackathon' && focusedIdeaId === idea.id && <span className="discussion-label">Discussing now</span>}<span className="idea-tag">{idea.tag}</span><button className="icon-button small" type="button" aria-label="Idea options"><MoreHorizontal size={17} /></button></div>
+                      <div className="idea-card-topline">{focusedIdeaId === idea.id && <span className="discussion-label">Discussing now</span>}<span className="idea-tag">{idea.tag}</span></div>
                       <h3><button type="button" className="idea-title-button" onClick={() => setSelectedIdea(idea.id)}>{idea.title || 'Untitled idea'}</button></h3>
                       <p>{idea.summary}</p>
                       <div className="idea-card-footer">

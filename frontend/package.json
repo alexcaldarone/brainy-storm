@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
+    "lint": "oxlint src vite.config.ts",
+    "test": "node --test src/ideaWorkspace.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.55.0",

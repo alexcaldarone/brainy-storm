@@ -10,7 +10,6 @@ from pathlib import Path
 
 import gradium
 import yaml
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -58,7 +57,6 @@ def reset_session():
 
 @asynccontextmanager
 async def lifespan(app):
-    load_dotenv(REPO_ROOT / ".env")
     app.state.api_key = os.getenv("GRADIUM_API_KEY", "").strip()
     if not app.state.api_key:
         raise RuntimeError("Set GRADIUM_API_KEY in the root .env before starting the transcriber")
@@ -135,8 +133,6 @@ async def transcribe(ws: WebSocket):
                 action = json.loads(message["text"]).get("action")
                 if action == "stop":
                     return
-                if action == "flush":
-                    await asyncio.wait_for(stt.send_flush(), timeout=5)
 
     async def save_batch(reason):
         nonlocal persistence_failed

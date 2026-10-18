@@ -5,11 +5,9 @@
   --tone-blue-ink: #2f3ad6;
   --tone-orange-bg: #fff1ec;
   --tone-orange-ink: #b0401f;
-  --tone-aqua-bg: #e3fbf8;
   --tone-aqua-ink: #0b6b63;
   --tone-yellow-bg: #fbffd1;
   --tone-yellow-ink: #5a6100;
-  --surface-subtle: #fafafa;
   --text-secondary: #525252;
 
   display: flex;
@@ -28,7 +26,7 @@
 .idea-intro { display: flex; flex-direction: column; gap: 14px; }
 .idea-header-block { display: flex; align-items: center; justify-content: space-between; }
 .idea-meta-badges { display: flex; align-items: center; gap: 8px; }
-.status-pill, .votes-pill {
+.votes-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -38,8 +36,6 @@
   font-weight: var(--weight-medium);
   text-transform: capitalize;
 }
-.status-pill { color: var(--tone-aqua-ink); background: var(--tone-aqua-bg); }
-.status-pill.status-enriching { color: var(--tone-yellow-ink); background: var(--tone-yellow-bg); }
 .votes-pill { color: var(--tone-yellow-ink); background: var(--tone-yellow-bg); }
 .idea-summary-section { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .section-eyebrow-label {
@@ -71,7 +67,6 @@
 }
 .tone-blue { color: var(--tone-blue-ink); background: var(--tone-blue-bg); }
 .tone-orange { color: var(--tone-orange-ink); background: var(--tone-orange-bg); }
-.tone-aqua { color: var(--tone-aqua-ink); background: var(--tone-aqua-bg); }
 .tone-yellow { color: var(--tone-yellow-ink); background: var(--tone-yellow-bg); }
 .panel-title {
   margin: 0;
@@ -135,32 +130,7 @@
   line-height: 1.45;
   letter-spacing: -0.01em;
 }
-
-/* Discussion voices */
 .conclusion-group { display: flex; flex-direction: column; gap: 12px; }
-.participants-brief-row { display: flex; align-items: center; gap: 12px; }
-.participants-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.participants-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted-foreground);
-  font-size: var(--text-small);
-  font-weight: var(--weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.voice-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: var(--text-small);
-  font-weight: var(--weight-medium);
-}
-.proponents-badge { color: var(--tone-blue-ink); background: var(--tone-blue-bg); }
-.opponents-badge { color: var(--tone-orange-ink); background: var(--tone-orange-bg); }
 
 /* --------------------------------------------------------------------------
    Pros & cons
@@ -169,7 +139,6 @@
 .column-pane { display: flex; flex-direction: column; gap: 10px; }
 .column-header { display: flex; align-items: center; gap: 8px; padding-bottom: 2px; }
 .column-header h4 { margin: 0; color: var(--foreground); font-size: var(--text-body); font-weight: var(--weight-medium); }
-.column-count { color: var(--muted-foreground); font-size: var(--text-small); }
 .column-dot { width: 8px; height: 8px; border-radius: 50%; }
 .pros-heading .column-dot { background: var(--brand-blue); }
 .cons-heading .column-dot { background: var(--brand-orange); }
@@ -205,39 +174,6 @@
 .risk-badge.risk-medium { color: var(--tone-orange-ink); background: var(--tone-orange-bg); }
 .impact-badge.impact-low, .risk-badge.risk-low { color: var(--text-secondary); background: var(--muted); }
 .card-point { margin: 0; color: var(--foreground); font-size: var(--text-body); font-weight: var(--weight-medium); line-height: 1.5; }
-.card-quote {
-  margin: 0;
-  padding-left: 10px;
-  color: var(--muted-foreground);
-  border-left: 2px solid var(--border);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-/* Risks & assumptions drawer */
-.extended-governance-section { display: flex; flex-direction: column; gap: 12px; }
-.extended-toggle-button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  min-height: var(--control-height);
-  padding: 0 14px;
-  color: var(--text-secondary);
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: var(--text-body);
-  cursor: pointer;
-}
-.extended-toggle-button:hover { color: var(--foreground); background: var(--muted); border-color: #a3a3a3; }
-.extended-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
-.extended-card { padding: 14px 16px; background: var(--surface-subtle); border: 1px solid var(--border); border-radius: 8px; }
-.extended-card h5 { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; font-size: var(--text-body); font-weight: var(--weight-medium); }
-.risks-card h5 { color: var(--tone-orange-ink); }
-.assumptions-card h5 { color: var(--tone-blue-ink); }
-.extended-card ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 18px; }
-.extended-card li { color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
 
 /* --------------------------------------------------------------------------
    Competitors
@@ -266,14 +202,6 @@
   line-height: 1.3;
   letter-spacing: -0.015em;
 }
-.founded-badge {
-  padding: 2px 8px;
-  color: var(--text-secondary);
-  background: var(--muted);
-  border-radius: 999px;
-  font-size: var(--text-small);
-  white-space: nowrap;
-}
 .competitor-copy { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .competitor-overview { margin: 0; color: var(--foreground); font-size: var(--text-body); line-height: 1.55; }
 .competitor-difference { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
@@ -288,22 +216,6 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.grounding-sources-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.sources-label { color: var(--muted-foreground); font-size: var(--text-small); }
-.sources-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.source-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  color: var(--text-secondary);
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: var(--text-small);
-  text-decoration: none;
-}
-.source-chip:hover { color: var(--tone-blue-ink); border-color: var(--brand-blue); }
 
 /* --------------------------------------------------------------------------
    Raw JSON

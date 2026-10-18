@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Copy, Check, Download, FileCode, ChevronDown, ChevronUp } from 'lucide-react'
+import type { GeneratedIdea, Idea } from '../ideaWorkspace'
 
-export function EnrichedJsonView({ data, ideaId }: { data: any; ideaId?: string }) {
+export function EnrichedJsonView({ data, ideaId }: { data: GeneratedIdea | Idea; ideaId?: string }) {
   const [copied, setCopied] = useState(false)
   const [collapsed, setCollapsed] = useState(true)
 
-  // Build clean representation, omitting circular references or internal frontend metadata if desired
   const jsonString = JSON.stringify(data, null, 2)
   const sizeKb = (new Blob([jsonString]).size / 1024).toFixed(1)
   const cleanId = ideaId?.replace(/^engine-/, '') || 'enriched-idea'

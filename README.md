@@ -34,3 +34,9 @@ docker compose up --build
 
 Settings (models, chunk sizes, polling intervals) live in `configs/default.yaml`. Stop the stack with `docker compose down`.
 
+## Contributors
+
+- [Alex John Caldarone](https://github.com/alexcaldarone)
+- [Giacomo Cirò](https://github.com/giacomo-ciro)
+- [Leonarda Lovrić](https://github.com/leonarda4)
+- [Marko Haralović](https://github.com/MarkoHaralovic)

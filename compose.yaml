@@ -5,8 +5,6 @@ services:
       target: frontend
     ports:
       - "127.0.0.1:5173:5173"
-    environment:
-      TRANSCRIBER_TARGET: http://transcriber:8000
     volumes:
       - ./frontend:/app/frontend
       - frontend_dependencies:/app/frontend/node_modules

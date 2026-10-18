@@ -5,7 +5,6 @@ import { KeyConclusionCard } from './components/KeyConclusionCard'
 import { ProsConsView } from './components/ProsConsView'
 import { CompetitorsView } from './components/CompetitorsView'
 import { EnrichedJsonView } from './components/EnrichedJsonView'
-import { Users, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react'
 
 function TextBlock({
   value,
@@ -66,17 +65,7 @@ export function EditableIdea({
   onChange: (fields: Partial<Pick<Idea, 'title' | 'summary' | 'tag'>>) => void
   storageError: boolean
 }) {
-  // Extract key conclusion from metadata, pros_cons, or root fields
-  const keyConclusion =
-    idea.metadata?.key_takeaway ||
-    idea.metadata?.key_conclusion ||
-    idea.conclusion ||
-    idea.pros_cons?.summary
-
-  // Build clean representation of raw idea for full enriched JSON
-  const rawData = idea.rawIdea || idea
-
-  const hasParticipants = Boolean(idea.proponents?.length || idea.opponents?.length)
+  const keyConclusion = idea.conclusion || idea.pros_cons?.summary
 
   return (
     <div className="enriched-idea-container">
@@ -84,12 +73,6 @@ export function EditableIdea({
         <div className="idea-header-block">
           <AbstractSymbol className="idea-page-symbol" />
           <div className="idea-meta-badges">
-            {idea.status && (
-              <span className={`status-pill status-${idea.status}`}>
-                <Sparkles size={11} />
-                <span>{idea.status}</span>
-              </span>
-            )}
             {idea.votes !== undefined && idea.votes > 0 && (
               <span className="votes-pill">
                 ★ {idea.votes} {idea.votes === 1 ? 'vote' : 'votes'}
@@ -97,8 +80,6 @@ export function EditableIdea({
             )}
           </div>
         </div>
-
-        {/* 1. Editable Title */}
         <div className="idea-editor-title" role="heading" aria-level={1}>
           <TextBlock
             label="Idea title"
@@ -109,8 +90,6 @@ export function EditableIdea({
             onChange={(title) => onChange({ title })}
           />
         </div>
-
-        {/* Tag input */}
         <div className="idea-tag-row">
           <input
             className="editable-tag idea-tag"
@@ -120,8 +99,6 @@ export function EditableIdea({
             onChange={(event) => onChange({ tag: event.target.value })}
           />
         </div>
-
-        {/* 2. Idea Summary */}
         <div className="idea-summary-section">
           <label className="section-eyebrow-label">Executive Summary</label>
           <div className="idea-editor-body">
@@ -142,49 +119,13 @@ export function EditableIdea({
         </small>
       </div>
 
-      {(keyConclusion || hasParticipants) && <div className="conclusion-group">
-        {/* 3. Key Conclusion so Far */}
-        {keyConclusion && (
-          <KeyConclusionCard
-            takeaway={idea.metadata?.key_takeaway}
-            conclusion={idea.conclusion}
-            fallback={keyConclusion}
-          />
-        )}
-
-        {/* Discussion Voice Champions (Proponents & Opponents) */}
-        {hasParticipants && (
-          <div className="participants-brief-row">
-            <div className="participants-group">
-              <span className="participants-label">
-                <Users size={13} />
-                <span>Discussion voices</span>
-              </span>
-              {Boolean(idea.proponents?.length) && (
-                <span className="voice-badge proponents-badge">
-                  <ThumbsUp size={11} />
-                  <span>{idea.proponents?.length} Champions</span>
-                </span>
-              )}
-              {Boolean(idea.opponents?.length) && (
-                <span className="voice-badge opponents-badge">
-                  <ThumbsDown size={11} />
-                  <span>{idea.opponents?.length} Skeptics</span>
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+      {keyConclusion && <div className="conclusion-group">
+        <KeyConclusionCard conclusion={keyConclusion} />
       </div>}
 
-      {/* 4. Pros & Cons identified from body (Categorized & Sorted) - Matches Image 1 */}
       <ProsConsView data={idea.pros_cons} />
-
-      {/* 5. Competitors Discovered via Google Search - Matches Image 2 */}
       <CompetitorsView data={idea.competitors} />
-
-      {/* 6. Full Enriched JSON Output (Copy & Download) */}
-      <EnrichedJsonView data={rawData} ideaId={idea.id} />
+      <EnrichedJsonView data={idea.rawIdea || idea} ideaId={idea.id} />
     </div>
   )
 }

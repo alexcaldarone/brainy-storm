@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 type Status = 'stopped' | 'connecting' | 'recording' | 'paused' | 'saving'
-const base = (import.meta.env.VITE_TRANSCRIBER_URL || '/api/transcriber').replace(/\/$/, '')
+const base = '/api/transcriber'
 
 export function useTranscription() {
   const [transcript, setTranscript] = useState('')
