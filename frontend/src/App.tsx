@@ -5,7 +5,14 @@ import {
   LayoutGrid,
   AudioLines,
   Clock3,
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  Search,
   FileText,
+  Info,
+  LoaderCircle,
   MoreHorizontal,
   Play,
   Pause,
@@ -15,24 +22,30 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import './enrichedView.css'
 import { AbstractSymbol, BrandShape, RecordingShape } from './BrandShape'
 import { EditableIdea } from './EditableIdea'
-import { AvatarGroup } from './AvatarGroup'
-import { mergeGeneratedIdeas, readWorkspace, workspaceKey } from './ideaWorkspace'
-import type { GeneratedIdea, Idea } from './ideaWorkspace'
+import { foldIdeaUpdates, mergeGeneratedIdeas, readWorkspace, workspaceKey } from './ideaWorkspace'
+import type { Idea } from './ideaWorkspace'
 import { useTranscription } from './useTranscription'
 
-const sessionParticipants = [
-  { initials: 'AC', color: 'avatar-one' },
-  { initials: 'GC', color: 'avatar-two' },
-  { initials: 'MH', color: 'avatar-three' },
-  { initials: 'LL', color: 'avatar-self' },
-]
+declare const __IDEA_POLL_INTERVAL_MS__: number
 
-function thumbnailUrl(thumbnail?: string | null) {
-  if (!thumbnail || /^(?:https?:|data:|blob:)/.test(thumbnail)) return thumbnail || ''
-  const base = (import.meta.env.VITE_IDEAS_URL || import.meta.env.VITE_ENRICHMENT_URL || '/api/enrichment').replace(/\/$/, '')
-  return thumbnail.startsWith('/ideas/') ? `${base}${thumbnail}` : thumbnail
+function InfoBanner({ message, role = 'status', loading = false }: { message: string; role?: 'status' | 'alert'; loading?: boolean }) {
+  const [dismissed, setDismissed] = useState(false)
+  if (dismissed) return null
+  return <div className="info-banner" role={role}><span className="info-banner-content">{loading ? <LoaderCircle className="banner-spinner" size={16} aria-hidden="true" /> : <Info size={16} aria-hidden="true" />}<span>{message}</span></span><button type="button" aria-label="Dismiss notification" onClick={() => setDismissed(true)}><X size={16} /></button></div>
+}
+
+function getTranscriptWidthBounds() {
+  const isOverlay = window.innerWidth <= 980
+  const minWidth = 260
+  const minSidebarAndMain = window.innerWidth <= 1160 ? 610 : 666
+  const maxAvailable = isOverlay
+    ? window.innerWidth - 60
+    : window.innerWidth - minSidebarAndMain
+  const maxWidth = Math.max(minWidth, Math.min(800, maxAvailable))
+  return { minWidth, maxWidth }
 }
 
 function App() {
@@ -40,25 +53,152 @@ function App() {
     try { return readWorkspace(localStorage.getItem(workspaceKey)) } catch { return null }
   })
   const [storageError, setStorageError] = useState(false)
-  const activeSession = 'Brainstorm'
-  const [ideas, setIdeas] = useState<Idea[]>(restored?.sessionIdeas.Hackathon || [])
+  const [search, setSearch] = useState('')
+  const [ideas, setIdeas] = useState<Idea[]>(() => restored || [])
+  const [expanded, setExpanded] = useState(true)
   const [restarting, setRestarting] = useState(false)
   const [restartError, setRestartError] = useState('')
   const restartDialog = useRef<HTMLDialogElement>(null)
   const pollingGeneration = useRef(0)
   const resetInProgress = useRef(false)
+  const [ideasError, setIdeasError] = useState('')
+  const [ideasLoading, setIdeasLoading] = useState(true)
   const [layout, setLayout] = useState<'horizontal' | 'grid'>('horizontal')
   const [focusedIdeaId, setFocusedIdeaId] = useState<string | null>(null)
   const [selectedIdea, setSelectedIdea] = useState<string | null>(null)
-  const { transcript, recording, loaded, elapsedSeconds, startRecording, stopRecording, resetMemory, exportTranscript } = useTranscription()
+  const { transcript, recording, error, loaded, elapsedSeconds, startRecording, stopRecording, resetMemory, exportTranscript } = useTranscription()
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const transcriptFeedRef = useRef<HTMLDivElement>(null)
   const discussedCardRef = useRef<HTMLElement | null>(null)
   const transitioning = recording === 'connecting' || recording === 'saving' || restarting
+  const appShellRef = useRef<HTMLDivElement>(null)
+  const [transcriptWidth, setTranscriptWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem('transcript_width')
+      if (saved) {
+        const parsed = Number(saved)
+        if (!Number.isNaN(parsed) && parsed >= 260 && parsed <= 800) {
+          return parsed
+        }
+      }
+    } catch {}
+    return 314
+  })
+  const [isDraggingTranscript, setIsDraggingTranscript] = useState(false)
+  const transcriptWidthRef = useRef(transcriptWidth)
+
+  useEffect(() => {
+    transcriptWidthRef.current = transcriptWidth
+  }, [transcriptWidth])
+
+  useEffect(() => {
+    if (!isDraggingTranscript) return
+
+    document.body.classList.add('is-resizing')
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const containerRight = appShellRef.current
+        ? appShellRef.current.getBoundingClientRect().right
+        : window.innerWidth
+      const rawWidth = containerRight - event.clientX
+      const { minWidth, maxWidth } = getTranscriptWidthBounds()
+      const clamped = Math.max(minWidth, Math.min(maxWidth, Math.round(rawWidth)))
+      transcriptWidthRef.current = clamped
+      if (appShellRef.current) {
+        appShellRef.current.style.setProperty('--transcript-width', `${clamped}px`)
+      }
+    }
+
+    const handlePointerUp = () => {
+      setIsDraggingTranscript(false)
+      const finalWidth = transcriptWidthRef.current
+      setTranscriptWidth(finalWidth)
+      try {
+        localStorage.setItem('transcript_width', String(finalWidth))
+      } catch {}
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
+
+    return () => {
+      document.body.classList.remove('is-resizing')
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+  }, [isDraggingTranscript])
+
+  useEffect(() => {
+    const handleResize = () => {
+      const { minWidth, maxWidth } = getTranscriptWidthBounds()
+      setTranscriptWidth(current => {
+        const clamped = Math.max(minWidth, Math.min(maxWidth, current))
+        if (clamped !== current) {
+          transcriptWidthRef.current = clamped
+          if (appShellRef.current) {
+            appShellRef.current.style.setProperty('--transcript-width', `${clamped}px`)
+          }
+          try {
+            localStorage.setItem('transcript_width', String(clamped))
+          } catch {}
+          return clamped
+        }
+        return current
+      })
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  function handleResizerDoubleClick() {
+    const defaultWidth = 314
+    const { minWidth, maxWidth } = getTranscriptWidthBounds()
+    const resetWidth = Math.max(minWidth, Math.min(maxWidth, defaultWidth))
+    setTranscriptWidth(resetWidth)
+    transcriptWidthRef.current = resetWidth
+    if (appShellRef.current) {
+      appShellRef.current.style.setProperty('--transcript-width', `${resetWidth}px`)
+    }
+    try {
+      localStorage.setItem('transcript_width', String(resetWidth))
+    } catch {}
+  }
+
+  function handleResizerKeyDown(event: React.KeyboardEvent) {
+    const { minWidth, maxWidth } = getTranscriptWidthBounds()
+    const step = event.shiftKey ? 40 : 16
+    let nextWidth = transcriptWidth
+
+    if (event.key === 'ArrowLeft') {
+      nextWidth = Math.min(maxWidth, transcriptWidth + step)
+    } else if (event.key === 'ArrowRight') {
+      nextWidth = Math.max(minWidth, transcriptWidth - step)
+    } else if (event.key === 'Home') {
+      nextWidth = minWidth
+    } else if (event.key === 'End') {
+      nextWidth = maxWidth
+    } else if (event.key === 'Enter') {
+      nextWidth = 314
+    } else {
+      return
+    }
+
+    event.preventDefault()
+    setTranscriptWidth(nextWidth)
+    transcriptWidthRef.current = nextWidth
+    if (appShellRef.current) {
+      appShellRef.current.style.setProperty('--transcript-width', `${nextWidth}px`)
+    }
+    try {
+      localStorage.setItem('transcript_width', String(nextWidth))
+    } catch {}
+  }
 
   useEffect(() => {
     try {
-      localStorage.setItem(workspaceKey, JSON.stringify({ sessions: [{ name: 'Brainstorm', date: 'Today', ideas: ideas.length }], sessionIdeas: { Hackathon: ideas } }))
+      localStorage.setItem(workspaceKey, JSON.stringify(ideas))
       // Report the result of synchronizing with browser storage.
       // oxlint-disable-next-line react/set-state-in-effect
       setStorageError(false)
@@ -73,28 +213,29 @@ function App() {
   useEffect(() => {
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout>
-    let refreshDelay = 3000
+    let refreshDelay = __IDEA_POLL_INTERVAL_MS__
     async function refresh() {
-      if (resetInProgress.current) { timer = setTimeout(refresh, 3000); return }
+      if (resetInProgress.current) { timer = setTimeout(refresh, __IDEA_POLL_INTERVAL_MS__); return }
       const generation = pollingGeneration.current
       try {
-        const base = (import.meta.env.VITE_ENRICHMENT_URL || '/api/enrichment').replace(/\/$/, '')
-        const response = await fetch(`${base}/ideas`, { signal: controller.signal })
+        const response = await fetch('/api/pubsub/idea-updates.jsonl', { signal: controller.signal, cache: 'no-store' })
         if (!response.ok) throw new Error('Could not load generated ideas.')
-        const payload = await response.json() as GeneratedIdea[] | { ideas: GeneratedIdea[] }
-        const data = Array.isArray(payload) ? payload : payload.ideas
+        const data = foldIdeaUpdates(await response.text())
         if (controller.signal.aborted || generation !== pollingGeneration.current) return
         setIdeas(current => mergeGeneratedIdeas(current, data))
         const focused = data.find(idea => idea.is_currently_discussed)
         setFocusedIdeaId(focused ? `engine-${focused.id}` : null)
-        refreshDelay = 3000
+        setIdeasError('')
+        refreshDelay = __IDEA_POLL_INTERVAL_MS__
       } catch {
         if (!controller.signal.aborted && generation === pollingGeneration.current) {
           refreshDelay = Math.min(refreshDelay * 2, 30000)
           setFocusedIdeaId(null)
+          setIdeasError('Showing saved ideas. Live updates are unavailable; retrying…')
         }
       } finally {
         if (!controller.signal.aborted) {
+          setIdeasLoading(false)
           timer = setTimeout(refresh, refreshDelay)
         }
       }
@@ -103,6 +244,9 @@ function App() {
     return () => { controller.abort(); clearTimeout(timer) }
   }, [])
 
+  const query = search.trim().toLowerCase()
+  const matchesIdea = (idea: Idea) => `${idea.title} ${idea.summary}`.toLowerCase().includes(query)
+  const visibleIdeas = ideas.filter(matchesIdea)
   const currentIdea = ideas.find(idea => idea.id === selectedIdea)
 
   const visibleFocusedIdeaId = !currentIdea
@@ -158,7 +302,6 @@ function App() {
       summary: 'A fresh thought from the room. Add context as the conversation unfolds.',
       tag: 'Just added',
       votes: 0,
-      pattern: 'orbit',
     }
     setIdeas((current) => [...current, nextIdea])
     setSelectedIdea(nextIdea.id)
@@ -166,7 +309,6 @@ function App() {
 
   const collaboratorActions = (
     <div className="collaborator-actions">
-      <AvatarGroup participants={sessionParticipants} />
       {!currentIdea && <div className="layout-picker" role="group" aria-label="Card layout">
         <button type="button" aria-label="Horizontal layout" title="Horizontal layout" aria-pressed={layout === 'horizontal'} onClick={() => setLayout('horizontal')}><Columns3 size={16} /></button>
         <button type="button" aria-label="Grid layout" title="Grid layout" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}><LayoutGrid size={16} /></button>
@@ -176,29 +318,67 @@ function App() {
   )
 
   return (
-    <div className="app-shell">
+    <div
+      ref={appShellRef}
+      className="app-shell"
+      style={{ '--transcript-width': `${transcriptWidth}px` } as React.CSSProperties}
+    >
       <dialog ref={restartDialog} className="restart-dialog" aria-labelledby="restart-title" onCancel={event => { if (restarting) event.preventDefault() }}>
         <button type="button" className="icon-button restart-dialog-close" aria-label="Cancel restart" disabled={restarting} onClick={() => restartDialog.current?.close()}><X size={18} /></button>
         <h2 id="restart-title">Restart brainstorm?</h2>
         <p>Are you sure you want to clear the memory and start over?</p>
-        <p>This clears all ideas and the transcript. Download your memory first if you want to keep a copy.</p>
+        <p>This clears the Hackathon ideas and the transcript. Download your memory first if you want to keep a copy.</p>
         {restartError && <p role="alert">{restartError}</p>}
         <div className="restart-actions">
           <button className="record-control primary-control" disabled={restarting} onClick={() => void restartBrainstorm()}>{restarting ? 'Restarting…' : 'Clear memory and restart'}</button>
           <button className="outline-button" disabled={restarting} onClick={downloadMemory}><Download size={14} /> Download memory</button>
         </div>
       </dialog>
+      <aside className="session-sidebar" aria-label="Shared brainstorming room">
+        <div className="wordmark">brainy storm</div>
+
+        <label className="session-search">
+          <Search size={15} />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search ideas"
+            aria-label="Search ideas"
+          />
+        </label>
+
+        <nav className="session-list-area" aria-label="Room and ideas">
+          <div className="session-list">
+            <div className="brainstorm-folder">
+              <div className={`folder-row ${!currentIdea ? 'active' : ''}`}>
+                <button type="button" className="folder-toggle" aria-label={`${expanded ? 'Collapse' : 'Expand'} Hackathon`} aria-expanded={expanded || Boolean(query)} onClick={() => setExpanded(current => !current)}>
+                  {expanded || query ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                </button>
+                <button type="button" className="session-item" onClick={() => { setSelectedIdea(null); setExpanded(true) }}>
+                  {expanded || query ? <FolderOpen size={15} /> : <Folder size={15} />}<span className="session-name">Hackathon</span>
+                </button>
+              </div>
+              {(expanded || query) && <div className="folder-ideas">
+                {visibleIdeas.map(idea => <button key={idea.id} type="button" className={`idea-nav-item ${selectedIdea === idea.id ? 'active' : ''}`} aria-current={selectedIdea === idea.id ? 'page' : undefined} title={idea.title} onClick={() => setSelectedIdea(idea.id)}><AbstractSymbol /><span>{idea.title || 'Untitled idea'}</span></button>)}
+                {visibleIdeas.length === 0 && <p className="empty-folder">{query ? 'No ideas found' : 'No ideas yet'}</p>}
+              </div>}
+            </div>
+          </div>
+        </nav>
+      </aside>
+
       <main className="main-column">
         <section className={`board-scroll ${!currentIdea && layout === 'horizontal' ? 'horizontal-board' : ''}`}>
           <div className="board-content">
+            {(ideasLoading || ideasError) && <InfoBanner key={ideasError || 'ideas-loading'} message={ideasError || 'Loading ideas…'} loading />}
             {currentIdea ? <article className="idea-page">
               <div className="idea-page-banner"><BrandShape variant={ideas.findIndex(idea => idea.id === currentIdea.id) % 6} /></div>
-              <div className="idea-page-toolbar"><button type="button" className="idea-back-button" onClick={() => setSelectedIdea(null)}>← Back to {activeSession}</button>{collaboratorActions}</div>
+              <div className="idea-page-toolbar"><button type="button" className="idea-back-button" onClick={() => setSelectedIdea(null)}>← Back to Hackathon</button>{collaboratorActions}</div>
               <EditableIdea key={currentIdea.id} idea={currentIdea} storageError={storageError} onChange={fields => setIdeas(current => current.map(idea => idea.id === currentIdea.id ? { ...idea, ...fields, locallyEdited: true } : idea))} />
             </article> : <>
             <div className="board-heading-row">
               <div>
-                <h1>{activeSession}</h1>
+                <h1>Hackathon</h1>
               </div>
               {collaboratorActions}
             </div>
@@ -212,16 +392,14 @@ function App() {
                     className={`idea-card ${focusedIdeaId === idea.id ? 'discussion-focus' : ''}`}
                     onClick={() => setSelectedIdea(idea.id)}
                   >
-                    <div className={`idea-art art-${idea.pattern}`}>
+                    <div className="idea-art">
                       <BrandShape variant={index % 6} />
-                      {idea.thumbnail && <img className="idea-thumbnail" src={thumbnailUrl(idea.thumbnail)} alt="" onError={event => { event.currentTarget.style.display = 'none' }} />}
                     </div>
                     <div className="idea-card-body">
-                      <div className="idea-card-topline">{focusedIdeaId === idea.id && <span className="discussion-label">Discussing now</span>}<span className="idea-tag">{idea.tag}</span><button className="icon-button small" type="button" aria-label="Idea options"><MoreHorizontal size={17} /></button></div>
+                      <div className="idea-card-topline">{focusedIdeaId === idea.id && <span className="discussion-label">Discussing now</span>}<span className="idea-tag">{idea.tag}</span></div>
                       <h3><button type="button" className="idea-title-button" onClick={() => setSelectedIdea(idea.id)}>{idea.title || 'Untitled idea'}</button></h3>
                       <p>{idea.summary}</p>
                       <div className="idea-card-footer">
-                        <AvatarGroup participants={sessionParticipants} />
                         <button type="button" className="vote-button" aria-label={`Upvote, ${idea.votes} votes`} onClick={(event) => { event.stopPropagation(); setIdeas((current) => current.map((entry) => entry.id === idea.id ? { ...entry, votes: entry.votes + 1 } : entry)) }}>
                           <ArrowDown className="vote-arrow" size={14} /><span>{idea.votes}</span>
                         </button>
@@ -266,6 +444,24 @@ function App() {
       </main>
 
       <aside className={`transcript-sidebar ${transcriptOpen ? 'mobile-open' : ''}`} aria-label="Live transcript">
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize transcript panel"
+          title="Drag to resize transcript (double-click to reset)"
+          aria-valuenow={transcriptWidth}
+          aria-valuemin={260}
+          aria-valuemax={800}
+          tabIndex={0}
+          className={`transcript-resizer ${isDraggingTranscript ? 'is-dragging' : ''}`}
+          onPointerDown={event => {
+            if (event.button === 0) {
+              setIsDraggingTranscript(true)
+            }
+          }}
+          onDoubleClick={handleResizerDoubleClick}
+          onKeyDown={handleResizerKeyDown}
+        />
         <div className="transcript-header">
           <div><div className="transcript-title-row"><h2>Transcript</h2><button type="button" className="icon-button small mobile-close" onClick={() => setTranscriptOpen(false)} aria-label="Close transcript"><X size={16} /></button></div></div>
           <details className="transcript-options" onBlur={event => {
@@ -290,14 +486,13 @@ function App() {
           </details>
         </div>
         <div className="transcript-feed" ref={transcriptFeedRef} aria-live="polite">
+          {error && <InfoBanner key={error} message={error} role="alert" />}
+          {!loaded && !error && <InfoBanner message="Loading existing transcript…" loading />}
           {loaded && transcript.length === 0 && <p>Start recording to capture your conversation.</p>}
           <div className="transcript-date"><span />TODAY<span /></div>
-          {transcript.map((line, index) => (
-            <article className={`transcript-line ${index === transcript.length - 1 && recording === 'recording' ? 'currently-speaking' : ''}`} key={index}>
-              <span className={`speaker-avatar ${line.initials === 'LL' ? 'avatar-self' : line.initials === 'AC' ? 'avatar-one' : line.initials === 'GC' ? 'avatar-two' : 'avatar-three'}`}>{line.initials}</span>
-              <div className="transcript-line-content"><div className="speaker-meta"><strong>{line.person}</strong><time>{line.time}</time></div><p>{line.text}</p></div>
-            </article>
-          ))}
+          {transcript && <article className={`transcript-line ${recording === 'recording' ? 'currently-speaking' : ''}`}>
+            <div className="transcript-line-content"><p>{transcript}</p></div>
+          </article>}
           {recording === 'recording' && <div className="transcript-capture"><span className="capture-avatar">···</span><span>Listening for the next thought</span><span className="capture-pulse" /></div>}
         </div>
       </aside>

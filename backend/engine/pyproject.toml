@@ -1,12 +1,10 @@
 [project]
 name = "engine"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "Extracts ideas from the live transcript and publishes classified chunks"
 requires-python = "==3.13.*"
 dependencies = [
     "google-genai>=2.29.0",
-    "ipykernel>=7.4.0",
     "pydantic>=2.14.0",
-    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0",
 ]

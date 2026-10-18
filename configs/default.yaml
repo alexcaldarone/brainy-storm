@@ -1,0 +1,33 @@
+# Non-secret configuration shared by every service. Secrets live in the root .env.
+# Paths are relative to the repository root.
+
+pubsub:
+  dir: pubsub
+  transcript: transcript.txt
+  classified_chunks: classified-chunks.jsonl
+  idea_updates: idea-updates.jsonl
+
+transcriber:
+  language: en
+  write_interval_s: 5  # Append one transcript line per interval.
+  drain_s: 5  # Wait for final Gradium results after Stop.
+
+engine:
+  model: gemini-3.8-flash
+  chunk_words: 20  # Send a request once this many new words arrived.
+  context_words: 500  # Trailing window per request: the new words plus the ones before them.
+  idle_flush_s: 10  # Send a shorter chunk after this long without new text.
+  poll_interval_s: 3.0
+  max_retries: 3  # Attempts per Gemini call before giving up on the tick.
+  request_timeout_s: 30.0
+
+enricher:
+  model: gemini-3.8-flash
+  context_words: 1500  # Trailing words of an idea's discussion sent per analysis.
+  max_parallel: 4  # Concurrent Gemini calls.
+  poll_interval_s: 1.0
+  max_retries: 2
+  request_timeout_s: 60.0  # Competitor search with Google grounding takes ~15s.
+
+frontend:
+  poll_interval_ms: 1000  # How often the board rereads idea-updates.jsonl.

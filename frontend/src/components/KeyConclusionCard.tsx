@@ -1,18 +1,6 @@
 import { Target, Sparkles } from 'lucide-react'
 
-export function KeyConclusionCard({
-  conclusion,
-  takeaway,
-  fallback,
-}: {
-  conclusion?: string | null
-  takeaway?: string | null
-  fallback?: string | null
-}) {
-  const content = takeaway || conclusion || fallback
-
-  if (!content) return null
-
+export function KeyConclusionCard({ conclusion }: { conclusion: string }) {
   return (
     <div className="key-conclusion-card" role="region" aria-label="Key Conclusion so Far">
       <div className="conclusion-header">
@@ -25,7 +13,7 @@ export function KeyConclusionCard({
           <span>Consensus Direction</span>
         </span>
       </div>
-      <p className="conclusion-text">{content}</p>
+      <p className="conclusion-text">{conclusion}</p>
     </div>
   )
 }

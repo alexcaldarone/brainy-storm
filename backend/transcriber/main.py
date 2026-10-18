@@ -1,4 +1,4 @@
-"""Single-room browser recording server; plain transcript batches every five seconds."""
+"""Single-room browser recording server; appends plain transcript batches to the pubsub transcript."""
 
 import asyncio
 import json
@@ -9,12 +9,18 @@ from datetime import datetime
 from pathlib import Path
 
 import gradium
-from dotenv import load_dotenv
+import yaml
 from fastapi import FastAPI, HTTPException, WebSocket
 
-WRITE_INTERVAL_SECONDS = 5
-DRAIN_SECONDS = 5
-TRANSCRIPT_FILE = Path(__file__).resolve().parents[2] / "data" / "transcript.txt"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+CONFIG = yaml.safe_load((REPO_ROOT / "configs" / "default.yaml").read_text())
+PUBSUB_DIR = REPO_ROOT / CONFIG["pubsub"]["dir"]
+TRANSCRIPT_FILE = PUBSUB_DIR / CONFIG["pubsub"]["transcript"]
+# A reset starts a new session: the transcript and every topic derived from it are cleared together.
+SESSION_TOPICS = [PUBSUB_DIR / CONFIG["pubsub"][name] for name in ("idea_updates", "classified_chunks")]
+LANGUAGE = CONFIG["transcriber"]["language"]
+WRITE_INTERVAL_SECONDS = CONFIG["transcriber"]["write_interval_s"]
+DRAIN_SECONDS = CONFIG["transcriber"]["drain_s"]
 logger = logging.getLogger("uvicorn.error")
 guard = asyncio.Lock()
 recording_active = False
@@ -37,7 +43,10 @@ def append_batch(text):
         output.flush()
 
 
-def replace_transcript():
+def reset_session():
+    # Clear topics first: the engine discards in-flight responses once the transcript is replaced.
+    for topic in SESSION_TOPICS:
+        topic.write_text("", encoding="utf-8")
     temporary = TRANSCRIPT_FILE.with_suffix(".txt.tmp")
     try:
         temporary.write_text("", encoding="utf-8")
@@ -48,10 +57,8 @@ def replace_transcript():
 
 @asynccontextmanager
 async def lifespan(app):
-    load_dotenv(Path(__file__).with_name(".env"))
-    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     app.state.api_key = os.getenv("GRADIUM_API_KEY", "").strip()
-    if not app.state.api_key or app.state.api_key == "your-gradium-api-key-here":
+    if not app.state.api_key:
         raise RuntimeError("Set GRADIUM_API_KEY in the root .env before starting the transcriber")
     TRANSCRIPT_FILE.parent.mkdir(parents=True, exist_ok=True)
     TRANSCRIPT_FILE.touch(exist_ok=True)
@@ -66,15 +73,6 @@ async def health():
     return {"status": "ready"}
 
 
-@app.get("/transcript")
-async def transcript():
-    try:
-        return {"transcript": await file_operation(TRANSCRIPT_FILE.read_text, encoding="utf-8")}
-    except OSError as exc:
-        logger.error("Cannot read transcript: %s", exc)
-        raise HTTPException(500, "Cannot read transcript") from exc
-
-
 @app.post("/transcript/reset")
 async def reset():
     # Ownership check and replacement are atomic relative to Start and final saving.
@@ -82,9 +80,9 @@ async def reset():
         if recording_active:
             raise HTTPException(409, "Stop recording and wait for saving before resetting the transcript")
         try:
-            replace_transcript()
+            reset_session()
         except OSError as exc:
-            logger.error("Cannot reset transcript: %s", exc)
+            logger.error("Cannot reset session: %s", exc)
             raise HTTPException(500, "Cannot reset transcript") from exc
     return {"status": "reset"}
 
@@ -135,8 +133,6 @@ async def transcribe(ws: WebSocket):
                 action = json.loads(message["text"]).get("action")
                 if action == "stop":
                     return
-                if action == "flush":
-                    await asyncio.wait_for(stt.send_flush(), timeout=5)
 
     async def save_batch(reason):
         nonlocal persistence_failed
@@ -155,7 +151,7 @@ async def transcribe(ws: WebSocket):
     try:
         stt = gradium.GradiumClient(api_key=app.state.api_key).stt_realtime(
             model_name="default", input_format="pcm",
-            json_config={"language": "en"}, wait_for_ready_on_start=True,
+            json_config={"language": LANGUAGE}, wait_for_ready_on_start=True,
         )
         await asyncio.wait_for(stt.__aenter__(), timeout=10)
         await caption({"type": "ready"})
